@@ -1,0 +1,44 @@
+# === SECRETS — NEVER COMMIT ===
+*.env
+.env
+.env.*
+!.env.template
+!*.env.template
+*.key
+*.pem
+*_api_key
+secrets/
+
+# === Binaries ===
+*.bin
+orchestrator-bin
+state-service-bin
+*.exe
+
+# === Build artifacts ===
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+dist/
+build/
+target/
+
+# === Editor / OS ===
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === Logs ===
+*.log
+logs/
+
+# === Backups ===
+*.bak
+*.bak.*
+*.backup

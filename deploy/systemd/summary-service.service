@@ -1,0 +1,19 @@
+[Unit]
+Description=Summary Service v1 (mail-stack)
+After=network.target
+
+[Service]
+Type=simple
+User=iakshin77
+Group=iakshin77
+UMask=0022
+WorkingDirectory=/opt/mail-stack/summary-service
+EnvironmentFile=/etc/mail-stack/summary-service.env
+ExecStart=/opt/mail-stack/summary-service/venv/bin/uvicorn server:app --host 127.0.0.1 --port 8768
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

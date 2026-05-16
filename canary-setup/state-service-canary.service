@@ -1,0 +1,28 @@
+[Unit]
+Description=State Service CANARY (mail-stack v1.2, Redis DB=1, port 8771)
+After=network.target redis-server.service
+Requires=redis-server.service
+
+[Service]
+Type=simple
+User=iakshin77
+Group=iakshin77
+WorkingDirectory=/opt/mail-stack/state-service
+EnvironmentFile=/etc/mail-stack/state-service-canary.env
+ExecStart=/opt/mail-stack/state-service/state-service-bin
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

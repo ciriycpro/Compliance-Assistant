@@ -1,0 +1,18 @@
+[Unit]
+Description=Mail IMAP Service (mail-stack v1)
+After=network.target
+
+[Service]
+Type=simple
+User=iakshin77
+Group=iakshin77
+WorkingDirectory=/opt/mail-stack/mail-service
+EnvironmentFile=/etc/mail-stack/mail-service.env
+ExecStart=/opt/mail-stack/mail-service/venv/bin/uvicorn server:app --host 127.0.0.1 --port 8765
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

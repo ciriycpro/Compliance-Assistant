@@ -1,0 +1,20 @@
+[Unit]
+Description=Orchestrator v1 (mail-stack, Go custom)
+After=network.target mail-service.service attachment-service.service parser-service.service summary-service.service agent-caller.service
+Wants=mail-service.service attachment-service.service parser-service.service summary-service.service agent-caller.service
+
+[Service]
+Type=simple
+User=iakshin77
+Group=iakshin77
+UMask=0022
+WorkingDirectory=/opt/mail-stack/orchestrator
+EnvironmentFile=/etc/mail-stack/orchestrator.env
+ExecStart=/opt/mail-stack/orchestrator/orchestrator-bin
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

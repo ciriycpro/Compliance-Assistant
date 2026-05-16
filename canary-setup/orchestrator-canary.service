@@ -1,0 +1,28 @@
+[Unit]
+Description=Orchestrator CANARY v1.2 (DEC-013 incremental, port 8779)
+After=network.target state-service-canary.service
+Wants=state-service-canary.service
+
+[Service]
+Type=simple
+User=iakshin77
+Group=iakshin77
+WorkingDirectory=/opt/mail-stack/orchestrator-canary
+EnvironmentFile=/etc/mail-stack/orchestrator-canary.env
+ExecStart=/opt/mail-stack/orchestrator-canary/orchestrator-bin
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+[Unit]
+Description=Parser Service v1 (mail-stack)
+After=network.target
+
+[Service]
+Type=simple
+User=iakshin77
+Group=iakshin77
+UMask=0022
+WorkingDirectory=/opt/mail-stack/parser-service
+EnvironmentFile=/etc/mail-stack/parser-service.env
+ExecStart=/opt/mail-stack/parser-service/venv/bin/uvicorn server:app --host 127.0.0.1 --port 8767
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

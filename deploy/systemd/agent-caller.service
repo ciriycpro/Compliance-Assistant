@@ -1,0 +1,17 @@
+[Unit]
+Description=Agent Caller
+After=network.target
+
+[Service]
+Type=simple
+User=iakshin77
+WorkingDirectory=/home/iakshin77/agent-caller
+ExecStart=/usr/bin/node /home/iakshin77/agent-caller/server.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
