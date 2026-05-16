@@ -9,6 +9,20 @@
 *_api_key
 secrets/
 
+# === WhatsApp Web sessions (содержат токены авторизации) ===
+.wwebjs_auth/
+.wwebjs_cache/
+*.session
+session.json
+session-*.json
+
+# === SSH / TLS ===
+id_rsa
+id_ed25519
+*.pub
+ca-bundle.crt
+*.crt
+
 # === Binaries ===
 *.bin
 orchestrator-bin
