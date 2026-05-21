@@ -1,6 +1,6 @@
 # Compliance Assistant — mail-stack production code
 
-Production code for **Compliance Helper** (DEC-014 v1.2.2) — multi-service mail processing stack running on coo (GCP e2-small).
+Production code for **Compliance Assistant** (DEC-014 v1.2.2) — multi-service mail processing stack running on coo (GCP e2-small).
 
 ## Точка входа для AI-ассистента
 
