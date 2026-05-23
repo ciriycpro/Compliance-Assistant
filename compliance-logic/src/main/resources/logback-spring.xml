@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <appender name="STDOUT_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>trace_id</includeMdcKeyName>
+            <includeMdcKeyName>span_id</includeMdcKeyName>
+            <includeMdcKeyName>client_inn</includeMdcKeyName>
+            <customFields>{"service":"compliance-logic"}</customFields>
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <message>msg</message>
+                <logger>logger</logger>
+                <thread>thread</thread>
+            </fieldNames>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT_JSON"/>
+    </root>
+
+    <logger name="ru.ciriycpro.compliance" level="DEBUG"/>
+    <logger name="liquibase" level="INFO"/>
+    <logger name="org.hibernate.SQL" level="INFO"/>
+
+</configuration>

@@ -1,0 +1,32 @@
+# Build artifacts (пересобирается в builder-stage)
+target/
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# OS
+.DS_Store
+*.swp
+
+# Logs
+*.log
+
+# Test artifacts
+test-output/
+
+# Secrets (даже случайно)
+*.env
+.env
+*.key
+*.pem
