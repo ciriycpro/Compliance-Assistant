@@ -1,12 +1,14 @@
 package ru.ciriycpro.compliance.registry;
 
 import jakarta.persistence.*;
+import org.hibernate.envers.Audited;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
 import java.util.UUID;
 
+@Audited
 @Entity
 @Table(name = "clients")
 public class Client {

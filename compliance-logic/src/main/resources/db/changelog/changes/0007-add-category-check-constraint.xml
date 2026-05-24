@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0007-add-category-check-constraint" author="claude+iakshin">
+        <comment>CHECK constraint на money_operations.parsed_subject_category — защита аналитики от опечаток LLM/ручного ввода</comment>
+
+        <sql>
+            ALTER TABLE money_operations
+            ADD CONSTRAINT ck_money_ops_parsed_subject_category
+            CHECK (parsed_subject_category IS NULL OR parsed_subject_category IN (
+                'GOODS', 'SERVICES', 'RENT', 'SALARY', 'TAX', 'LOAN', 'TRANSFER', 'OTHER'
+            ));
+        </sql>
+
+    </changeSet>
+
+</databaseChangeLog>

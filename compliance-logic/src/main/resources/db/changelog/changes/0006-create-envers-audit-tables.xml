@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0006-1-create-revinfo" author="claude+iakshin">
+        <comment>Envers revinfo — глобальный реестр ревизий для аудита (DEC-017 Уровень 1)</comment>
+
+        <createSequence sequenceName="revinfo_seq" startValue="1" incrementBy="1"/>
+
+        <createTable tableName="revinfo">
+            <column name="rev" type="integer" defaultValueSequenceNext="revinfo_seq">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="revtstmp" type="bigint"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0006-2-create-clients-aud" author="claude+iakshin">
+        <comment>Envers audit table для Client</comment>
+
+        <createTable tableName="clients_aud">
+            <column name="rev" type="integer">
+                <constraints nullable="false" foreignKeyName="fk_clients_aud_rev" references="revinfo(rev)"/>
+            </column>
+            <column name="revtype" type="smallint"/>
+            <column name="id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="inn" type="varchar(12)"/>
+            <column name="full_name" type="varchar(500)"/>
+            <column name="phone" type="varchar(20)"/>
+            <column name="status" type="varchar(20)"/>
+            <column name="created_at" type="timestamp with time zone"/>
+            <column name="updated_at" type="timestamp with time zone"/>
+        </createTable>
+
+        <addPrimaryKey tableName="clients_aud" columnNames="id, rev" constraintName="pk_clients_aud"/>
+    </changeSet>
+
+    <changeSet id="0006-3-create-counterparties-aud" author="claude+iakshin">
+        <comment>Envers audit table для Counterparty</comment>
+
+        <createTable tableName="counterparties_aud">
+            <column name="rev" type="integer">
+                <constraints nullable="false" foreignKeyName="fk_counterparties_aud_rev" references="revinfo(rev)"/>
+            </column>
+            <column name="revtype" type="smallint"/>
+            <column name="id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid"/>
+            <column name="inn" type="varchar(12)"/>
+            <column name="name" type="varchar(500)"/>
+            <column name="trust_level" type="varchar(20)"/>
+            <column name="notes" type="varchar(2000)"/>
+            <column name="created_at" type="timestamp with time zone"/>
+            <column name="updated_at" type="timestamp with time zone"/>
+        </createTable>
+
+        <addPrimaryKey tableName="counterparties_aud" columnNames="id, rev" constraintName="pk_counterparties_aud"/>
+    </changeSet>
+
+    <changeSet id="0006-4-create-documents-aud" author="claude+iakshin">
+        <comment>Envers audit table для Document</comment>
+
+        <createTable tableName="documents_aud">
+            <column name="rev" type="integer">
+                <constraints nullable="false" foreignKeyName="fk_documents_aud_rev" references="revinfo(rev)"/>
+            </column>
+            <column name="revtype" type="smallint"/>
+            <column name="id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid"/>
+            <column name="type" type="varchar(20)"/>
+            <column name="source" type="varchar(30)"/>
+            <column name="historic" type="boolean"/>
+            <column name="file_path" type="varchar(512)"/>
+            <column name="sha256" type="varchar(64)"/>
+            <column name="mime_type" type="varchar(100)"/>
+            <column name="size_bytes" type="bigint"/>
+            <column name="original_filename" type="varchar(255)"/>
+            <column name="attributes" type="jsonb"/>
+            <column name="parsed_at" type="timestamp with time zone"/>
+            <column name="classified_at" type="timestamp with time zone"/>
+            <column name="created_at" type="timestamp with time zone"/>
+            <column name="updated_at" type="timestamp with time zone"/>
+        </createTable>
+
+        <addPrimaryKey tableName="documents_aud" columnNames="id, rev" constraintName="pk_documents_aud"/>
+    </changeSet>
+
+    <changeSet id="0006-5-create-statements-aud" author="claude+iakshin">
+        <comment>Envers audit table для Statement</comment>
+
+        <createTable tableName="statements_aud">
+            <column name="rev" type="integer">
+                <constraints nullable="false" foreignKeyName="fk_statements_aud_rev" references="revinfo(rev)"/>
+            </column>
+            <column name="revtype" type="smallint"/>
+            <column name="id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="document_id" type="uuid"/>
+            <column name="client_id" type="uuid"/>
+            <column name="counterparty_id" type="uuid"/>
+            <column name="bank_name" type="varchar(200)"/>
+            <column name="period_start" type="date"/>
+            <column name="period_end" type="date"/>
+            <column name="source_message_id" type="varchar(500)"/>
+            <column name="amount_total" type="decimal(18,2)"/>
+            <column name="operation_count" type="integer"/>
+            <column name="currency" type="varchar(3)"/>
+            <column name="status" type="varchar(20)"/>
+            <column name="created_at" type="timestamp with time zone"/>
+            <column name="updated_at" type="timestamp with time zone"/>
+        </createTable>
+
+        <addPrimaryKey tableName="statements_aud" columnNames="id, rev" constraintName="pk_statements_aud"/>
+    </changeSet>
+
+    <changeSet id="0006-6-create-money-operations-aud" author="claude+iakshin">
+        <comment>Envers audit table для MoneyOperation</comment>
+
+        <createTable tableName="money_operations_aud">
+            <column name="rev" type="integer">
+                <constraints nullable="false" foreignKeyName="fk_money_ops_aud_rev" references="revinfo(rev)"/>
+            </column>
+            <column name="revtype" type="smallint"/>
+            <column name="id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="statement_id" type="uuid"/>
+            <column name="client_id" type="uuid"/>
+            <column name="counterparty_id" type="uuid"/>
+            <column name="operation_date" type="date"/>
+            <column name="amount" type="decimal(18,2)"/>
+            <column name="direction" type="varchar(10)"/>
+            <column name="purpose" type="varchar(2000)"/>
+            <column name="counterparty_inn_raw" type="varchar(12)"/>
+            <column name="counterparty_name_raw" type="varchar(500)"/>
+            <column name="parsed_contract_number" type="varchar(100)"/>
+            <column name="parsed_contract_date" type="date"/>
+            <column name="parsed_invoice_number" type="varchar(100)"/>
+            <column name="parsed_subject" type="varchar(500)"/>
+            <column name="parsed_subject_category" type="varchar(50)"/>
+            <column name="parsed_quantity" type="decimal(18,3)"/>
+            <column name="parsed_unit" type="varchar(20)"/>
+            <column name="parsed_vat_amount" type="decimal(18,2)"/>
+            <column name="parsing_confidence" type="decimal(3,2)"/>
+            <column name="linked_contract_id" type="uuid"/>
+            <column name="linked_act_id" type="uuid"/>
+            <column name="created_at" type="timestamp with time zone"/>
+            <column name="updated_at" type="timestamp with time zone"/>
+        </createTable>
+
+        <addPrimaryKey tableName="money_operations_aud" columnNames="id, rev" constraintName="pk_money_operations_aud"/>
+    </changeSet>
+
+</databaseChangeLog>

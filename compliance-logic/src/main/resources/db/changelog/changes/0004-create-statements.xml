@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0004-create-statements" author="claude+iakshin">
+        <comment>Statement — банковская выписка как специализация Document, DEC-023 Registry v1.0</comment>
+
+        <createTable tableName="statements">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="document_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_statements_document" references="documents(id)"/>
+            </column>
+            <column name="client_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_statements_client" references="clients(id)"/>
+            </column>
+            <column name="counterparty_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_statements_bank" references="counterparties(id)"/>
+            </column>
+            <column name="bank_name" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="period_start" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="period_end" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_message_id" type="varchar(500)"/>
+            <column name="amount_total" type="decimal(18,2)"/>
+            <column name="operation_count" type="integer"/>
+            <column name="currency" type="varchar(3)" defaultValue="RUB"/>
+            <column name="status" type="varchar(20)" defaultValue="RECEIVED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="statements" indexName="idx_statements_document">
+            <column name="document_id"/>
+        </createIndex>
+        <createIndex tableName="statements" indexName="idx_statements_client">
+            <column name="client_id"/>
+        </createIndex>
+        <createIndex tableName="statements" indexName="idx_statements_bank">
+            <column name="counterparty_id"/>
+        </createIndex>
+        <createIndex tableName="statements" indexName="idx_statements_period">
+            <column name="period_start"/>
+            <column name="period_end"/>
+        </createIndex>
+        <createIndex tableName="statements" indexName="idx_statements_status">
+            <column name="status"/>
+        </createIndex>
+
+        <addUniqueConstraint
+            tableName="statements"
+            columnNames="document_id"
+            constraintName="uk_statements_document"/>
+
+    </changeSet>
+
+</databaseChangeLog>

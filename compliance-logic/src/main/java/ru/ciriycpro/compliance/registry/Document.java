@@ -1,6 +1,7 @@
 package ru.ciriycpro.compliance.registry;
 
 import jakarta.persistence.*;
+import org.hibernate.envers.Audited;
 import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -10,6 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+@Audited
 @Entity
 @Table(name = "documents", indexes = {
         @Index(name = "idx_documents_client", columnList = "client_id"),

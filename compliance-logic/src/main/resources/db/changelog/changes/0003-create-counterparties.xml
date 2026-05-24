@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0003-create-counterparties" author="claude+iakshin">
+        <comment>Counterparty — контрагенты клиента (банки + бизнес-контрагенты), DEC-023 Registry v1.0</comment>
+
+        <createTable tableName="counterparties">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_counterparties_client" references="clients(id)"/>
+            </column>
+            <column name="inn" type="varchar(12)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="varchar(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="trust_level" type="varchar(20)" defaultValue="NEUTRAL">
+                <constraints nullable="false"/>
+            </column>
+            <column name="notes" type="varchar(2000)"/>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="counterparties" indexName="idx_counterparties_client">
+            <column name="client_id"/>
+        </createIndex>
+        <createIndex tableName="counterparties" indexName="idx_counterparties_inn">
+            <column name="inn"/>
+        </createIndex>
+        <createIndex tableName="counterparties" indexName="idx_counterparties_trust_level">
+            <column name="trust_level"/>
+        </createIndex>
+
+        <addUniqueConstraint
+            tableName="counterparties"
+            columnNames="client_id, inn"
+            constraintName="uk_counterparties_client_inn"/>
+
+    </changeSet>
+
+</databaseChangeLog>

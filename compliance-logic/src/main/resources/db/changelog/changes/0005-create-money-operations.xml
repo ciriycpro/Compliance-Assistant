@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0005-create-money-operations" author="claude+iakshin">
+        <comment>MoneyOperation — операции из банковской выписки с парсенными полями для Reconciler, DEC-023 Registry v1.0</comment>
+
+        <createTable tableName="money_operations">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="statement_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_money_ops_statement" references="statements(id)"/>
+            </column>
+            <column name="client_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_money_ops_client" references="clients(id)"/>
+            </column>
+            <column name="counterparty_id" type="uuid">
+                <constraints foreignKeyName="fk_money_ops_counterparty" references="counterparties(id)"/>
+            </column>
+            <column name="operation_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="decimal(18,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="direction" type="varchar(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="purpose" type="varchar(2000)"/>
+            <column name="counterparty_inn_raw" type="varchar(12)"/>
+            <column name="counterparty_name_raw" type="varchar(500)"/>
+            <column name="parsed_contract_number" type="varchar(100)"/>
+            <column name="parsed_contract_date" type="date"/>
+            <column name="parsed_invoice_number" type="varchar(100)"/>
+            <column name="parsed_subject" type="varchar(500)"/>
+            <column name="parsed_subject_category" type="varchar(50)"/>
+            <column name="parsed_quantity" type="decimal(18,3)"/>
+            <column name="parsed_unit" type="varchar(20)"/>
+            <column name="parsed_vat_amount" type="decimal(18,2)"/>
+            <column name="parsing_confidence" type="decimal(3,2)"/>
+            <column name="linked_contract_id" type="uuid"/>
+            <column name="linked_act_id" type="uuid"/>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="money_operations" indexName="idx_money_ops_statement">
+            <column name="statement_id"/>
+        </createIndex>
+        <createIndex tableName="money_operations" indexName="idx_money_ops_client">
+            <column name="client_id"/>
+        </createIndex>
+        <createIndex tableName="money_operations" indexName="idx_money_ops_counterparty">
+            <column name="counterparty_id"/>
+        </createIndex>
+        <createIndex tableName="money_operations" indexName="idx_money_ops_date">
+            <column name="operation_date"/>
+        </createIndex>
+        <createIndex tableName="money_operations" indexName="idx_money_ops_direction">
+            <column name="direction"/>
+        </createIndex>
+        <createIndex tableName="money_operations" indexName="idx_money_ops_linked_contract">
+            <column name="linked_contract_id"/>
+        </createIndex>
+        <createIndex tableName="money_operations" indexName="idx_money_ops_parsed_contract">
+            <column name="parsed_contract_number"/>
+        </createIndex>
+        <createIndex tableName="money_operations" indexName="idx_money_ops_parsed_category">
+            <column name="parsed_subject_category"/>
+        </createIndex>
+
+    </changeSet>
+
+</databaseChangeLog>
