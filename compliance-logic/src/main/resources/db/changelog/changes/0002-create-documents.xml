@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0002-create-documents" author="claude+iakshin">
+        <comment>Document master-table — fundament Registry для всех документов (DEC-023)</comment>
+
+        <createTable tableName="documents">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_documents_client" references="clients(id)"/>
+            </column>
+            <column name="type" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source" type="varchar(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="historic" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="file_path" type="varchar(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sha256" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="mime_type" type="varchar(100)"/>
+            <column name="size_bytes" type="bigint"/>
+            <column name="original_filename" type="varchar(255)"/>
+            <column name="attributes" type="jsonb"/>
+            <column name="parsed_at" type="timestamp with time zone"/>
+            <column name="classified_at" type="timestamp with time zone"/>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="documents" indexName="idx_documents_client">
+            <column name="client_id"/>
+        </createIndex>
+        <createIndex tableName="documents" indexName="idx_documents_type">
+            <column name="type"/>
+        </createIndex>
+        <createIndex tableName="documents" indexName="idx_documents_sha256">
+            <column name="sha256"/>
+        </createIndex>
+        <createIndex tableName="documents" indexName="idx_documents_historic">
+            <column name="historic"/>
+        </createIndex>
+
+        <addUniqueConstraint
+            tableName="documents"
+            columnNames="client_id, sha256"
+            constraintName="uk_documents_client_sha256"/>
+
+        <sql>CREATE INDEX idx_documents_attributes_gin ON documents USING gin (attributes);</sql>
+
+    </changeSet>
+
+</databaseChangeLog>

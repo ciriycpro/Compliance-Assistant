@@ -6,5 +6,6 @@
         https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
 
     <include file="db/changelog/changes/0001-create-clients.xml"/>
+    <include file="db/changelog/changes/0002-create-documents.xml"/>
 
 </databaseChangeLog>
