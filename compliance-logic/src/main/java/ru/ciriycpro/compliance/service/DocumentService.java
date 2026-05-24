@@ -54,6 +54,48 @@ public class DocumentService {
      * @return CreateResult с doc и stored — последний нужен Controller'у для orphan cleanup при exception
      */
     @Transactional
+    /**
+     * Создание Document из byte[] (для batch-импорта).
+     * Возвращает null если документ с таким sha256 уже существует (для skip-логики backfill).
+     */
+    public Document createFromBytes(UUID clientId, String filename, String mimeType,
+                                    byte[] content, DocumentType type, DocumentSource source,
+                                    boolean historic) throws IOException {
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new ClientNotFoundException("client not found: " + clientId));
+
+        String sha256 = DocumentStorageService.computeSha256(content);
+
+        if (documentRepository.existsByClientIdAndSha256(clientId, sha256)) {
+            log.debug("backfill skip: document with sha256={} already exists for client={}", sha256, clientId);
+            return null;
+        }
+
+        StorageResult stored = storageService.store(client.getInn(), type, filename, content);
+
+        Document doc = new Document();
+        doc.setClient(client);
+        doc.setType(type);
+        doc.setSource(source);
+        doc.setHistoric(historic);
+        doc.setFilePath(stored.filePath());
+        doc.setSha256(stored.sha256());
+        doc.setSizeBytes(stored.sizeBytes());
+        doc.setMimeType(mimeType != null ? mimeType : "application/octet-stream");
+        doc.setOriginalFilename(filename);
+
+        try {
+            Document saved = documentRepository.save(doc);
+            log.info("document created via backfill id={} client_inn={} type={} sha256={}",
+                    saved.getId(), client.getInn(), type, sha256);
+            return saved;
+        } catch (RuntimeException e) {
+            log.error("failed to save document, deleting orphan blob filePath={}", stored.filePath(), e);
+            storageService.deleteBlob(stored.filePath());
+            throw e;
+        }
+    }
+
     public CreateResult create(UUID clientId, DocumentType type, DocumentSource source,
                                boolean historic, MultipartFile file) throws IOException {
         Client client = clientRepository.findById(clientId)

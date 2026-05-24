@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0010-1-create-backfill-jobs" author="claude+iakshin">
+        <comment>BackfillJob — batch-задача загрузки исторических документов (DEC-023 v1.5)</comment>
+
+        <createTable tableName="backfill_jobs">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_backfill_jobs_client" references="clients(id)"/>
+            </column>
+            <column name="source_path" type="varchar(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_files" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="processed_files" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_documents" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="skipped_documents" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="failed_documents" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="started_at" type="timestamp with time zone"/>
+            <column name="completed_at" type="timestamp with time zone"/>
+            <column name="error_message" type="varchar(2000)"/>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="backfill_jobs" indexName="idx_backfill_jobs_client">
+            <column name="client_id"/>
+        </createIndex>
+        <createIndex tableName="backfill_jobs" indexName="idx_backfill_jobs_status">
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="backfill_jobs" indexName="idx_backfill_jobs_started_at">
+            <column name="started_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0010-2-create-backfill-jobs-aud" author="claude+iakshin">
+        <comment>Envers audit table для BackfillJob</comment>
+
+        <createTable tableName="backfill_jobs_aud">
+            <column name="rev" type="integer">
+                <constraints nullable="false" foreignKeyName="fk_backfill_jobs_aud_rev" references="revinfo(rev)"/>
+            </column>
+            <column name="revtype" type="smallint"/>
+            <column name="id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid"/>
+            <column name="source_path" type="varchar(500)"/>
+            <column name="status" type="varchar(20)"/>
+            <column name="total_files" type="integer"/>
+            <column name="processed_files" type="integer"/>
+            <column name="created_documents" type="integer"/>
+            <column name="skipped_documents" type="integer"/>
+            <column name="failed_documents" type="integer"/>
+            <column name="started_at" type="timestamp with time zone"/>
+            <column name="completed_at" type="timestamp with time zone"/>
+            <column name="error_message" type="varchar(2000)"/>
+            <column name="created_at" type="timestamp with time zone"/>
+            <column name="updated_at" type="timestamp with time zone"/>
+        </createTable>
+
+        <addPrimaryKey tableName="backfill_jobs_aud" columnNames="id, rev" constraintName="pk_backfill_jobs_aud"/>
+    </changeSet>
+
+</databaseChangeLog>

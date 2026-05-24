@@ -7,10 +7,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import ru.ciriycpro.compliance.service.BackfillService;
 import ru.ciriycpro.compliance.service.ClientService;
+import ru.ciriycpro.compliance.service.ComplianceEventService;
 import ru.ciriycpro.compliance.service.CounterpartyService;
 import ru.ciriycpro.compliance.service.DocumentService;
 import ru.ciriycpro.compliance.service.MoneyOperationService;
+import ru.ciriycpro.compliance.service.StatementGapInspectorService;
 import ru.ciriycpro.compliance.service.StatementService;
 
 import java.time.Instant;
@@ -20,11 +23,11 @@ import java.util.Map;
  * Глобальный обработчик исключений от Service-слоя.
  *
  * Маппинг типизированных бизнес-исключений на HTTP коды:
+ *  - 400: InvalidSourcePathException, IllegalArgumentException
  *  - 404: *NotFoundException
- *  - 409: Duplicate*Exception
- *  - 422: Invalid*Exception, *OutOfRangeException, *DocumentTypeException
- *  - 400: общий IllegalArgumentException
- *  - 500: RuntimeException (всё остальное)
+ *  - 409: Duplicate*Exception, IllegalBackfillStateException
+ *  - 422: Invalid*Exception, *OutOfRangeException, DataIntegrityViolationException
+ *  - 503: BackfillDisabledException (служба отключена)
  *
  * Тело ответа: { error, message, timestamp }
  */
@@ -45,7 +48,11 @@ public class GlobalExceptionHandler {
             MoneyOperationService.StatementNotFoundException.class,
             MoneyOperationService.ClientNotFoundException.class,
             MoneyOperationService.CounterpartyNotFoundException.class,
-            MoneyOperationService.MoneyOperationNotFoundException.class
+            MoneyOperationService.MoneyOperationNotFoundException.class,
+            BackfillService.ClientNotFoundException.class,
+            BackfillService.BackfillJobNotFoundException.class,
+            StatementGapInspectorService.ClientNotFoundException.class,
+            ComplianceEventService.EventNotFoundException.class
     })
     public ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException e) {
         log.warn("404 NotFound: {}", e.getMessage());
@@ -56,7 +63,8 @@ public class GlobalExceptionHandler {
             ClientService.DuplicateClientException.class,
             CounterpartyService.DuplicateCounterpartyException.class,
             DocumentService.DuplicateDocumentException.class,
-            StatementService.DuplicateStatementException.class
+            StatementService.DuplicateStatementException.class,
+            BackfillService.IllegalBackfillStateException.class
     })
     public ResponseEntity<Map<String, Object>> handleConflict(RuntimeException e) {
         log.warn("409 Conflict: {}", e.getMessage());
@@ -80,6 +88,18 @@ public class GlobalExceptionHandler {
         String msg = e.getMostSpecificCause() != null ? e.getMostSpecificCause().getMessage() : e.getMessage();
         log.warn("422 DataIntegrityViolation: {}", msg);
         return error(HttpStatus.UNPROCESSABLE_ENTITY, "data_integrity_violation", msg);
+    }
+
+    @ExceptionHandler(BackfillService.InvalidSourcePathException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidSourcePath(BackfillService.InvalidSourcePathException e) {
+        log.warn("400 invalid source path: {}", e.getMessage());
+        return error(HttpStatus.BAD_REQUEST, "invalid_source_path", e.getMessage());
+    }
+
+    @ExceptionHandler(BackfillService.BackfillDisabledException.class)
+    public ResponseEntity<Map<String, Object>> handleBackfillDisabled(BackfillService.BackfillDisabledException e) {
+        log.warn("503 backfill disabled: {}", e.getMessage());
+        return error(HttpStatus.SERVICE_UNAVAILABLE, "service_disabled", e.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
