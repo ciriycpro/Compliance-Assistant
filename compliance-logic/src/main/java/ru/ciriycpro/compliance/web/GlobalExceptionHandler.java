@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import ru.ciriycpro.compliance.service.ClientService;
 import ru.ciriycpro.compliance.service.CounterpartyService;
@@ -72,6 +73,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleUnprocessable(RuntimeException e) {
         log.warn("422 Unprocessable: {}", e.getMessage());
         return error(HttpStatus.UNPROCESSABLE_ENTITY, "unprocessable_entity", e.getMessage());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException e) {
+        String msg = e.getMostSpecificCause() != null ? e.getMostSpecificCause().getMessage() : e.getMessage();
+        log.warn("422 DataIntegrityViolation: {}", msg);
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, "data_integrity_violation", msg);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

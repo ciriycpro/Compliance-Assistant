@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliance-logic
+  namespace: compliance-assistant
+  labels:
+    app.kubernetes.io/name: compliance-logic
+    app.kubernetes.io/component: business-tier
+    app.kubernetes.io/part-of: compliance-assistant
+spec:
+  replicas: 1   # v1.0 — stateful tier, не масштабируется горизонтально без миграции на read-replica
+  strategy:
+    type: Recreate   # avoid concurrent writes на PVC
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: compliance-logic
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: compliance-logic
+        app.kubernetes.io/component: business-tier
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: compliance-logic
+        image: compliance-logic:0.0.2-SNAPSHOT
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8771
+          name: http
+        envFrom:
+        - configMapRef:
+            name: compliance-logic-config
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: compliance-logic-secrets
+              key: POSTGRES_PASSWORD
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: compliance-logic-secrets
+              key: API_KEY
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: compliance-logic-secrets
+              key: POSTGRES_PASSWORD
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8771
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8771
+          initialDelaySeconds: 20
+          periodSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: compliance-files
+          mountPath: /var/lib/compliance-files
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+      volumes:
+      - name: compliance-files
+        persistentVolumeClaim:
+          claimName: compliance-files-pvc

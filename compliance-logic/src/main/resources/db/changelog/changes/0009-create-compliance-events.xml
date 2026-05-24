@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0009-1-create-compliance-events" author="claude+iakshin">
+        <comment>ComplianceEvent — лог входящих событий от orchestrator (DEC-023 EventIngest)</comment>
+
+        <createTable tableName="compliance_events">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="event_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="trace_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="event_type" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_inn" type="varchar(12)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="historic" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="occurred_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payload" type="jsonb"/>
+            <column name="received_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="processed_at" type="timestamp with time zone"/>
+            <column name="processing_error" type="varchar(2000)"/>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="compliance_events" indexName="idx_compliance_events_event_id">
+            <column name="event_id"/>
+        </createIndex>
+        <createIndex tableName="compliance_events" indexName="idx_compliance_events_trace_id">
+            <column name="trace_id"/>
+        </createIndex>
+        <createIndex tableName="compliance_events" indexName="idx_compliance_events_client_inn">
+            <column name="client_inn"/>
+        </createIndex>
+        <createIndex tableName="compliance_events" indexName="idx_compliance_events_event_type">
+            <column name="event_type"/>
+        </createIndex>
+        <createIndex tableName="compliance_events" indexName="idx_compliance_events_source">
+            <column name="source"/>
+        </createIndex>
+        <createIndex tableName="compliance_events" indexName="idx_compliance_events_received_at">
+            <column name="received_at"/>
+        </createIndex>
+        <createIndex tableName="compliance_events" indexName="idx_compliance_events_processed_at">
+            <column name="processed_at"/>
+        </createIndex>
+
+        <addUniqueConstraint
+            tableName="compliance_events"
+            columnNames="event_id"
+            constraintName="uk_compliance_events_event_id"/>
+
+    </changeSet>
+
+    <changeSet id="0009-2-create-compliance-events-aud" author="claude+iakshin">
+        <comment>Envers audit table для ComplianceEvent</comment>
+
+        <createTable tableName="compliance_events_aud">
+            <column name="rev" type="integer">
+                <constraints nullable="false" foreignKeyName="fk_compliance_events_aud_rev" references="revinfo(rev)"/>
+            </column>
+            <column name="revtype" type="smallint"/>
+            <column name="id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="event_id" type="uuid"/>
+            <column name="trace_id" type="uuid"/>
+            <column name="event_type" type="varchar(100)"/>
+            <column name="client_inn" type="varchar(12)"/>
+            <column name="source" type="varchar(20)"/>
+            <column name="historic" type="boolean"/>
+            <column name="occurred_at" type="timestamp with time zone"/>
+            <column name="payload" type="jsonb"/>
+            <column name="received_at" type="timestamp with time zone"/>
+            <column name="processed_at" type="timestamp with time zone"/>
+            <column name="processing_error" type="varchar(2000)"/>
+            <column name="created_at" type="timestamp with time zone"/>
+            <column name="updated_at" type="timestamp with time zone"/>
+        </createTable>
+
+        <addPrimaryKey tableName="compliance_events_aud" columnNames="id, rev" constraintName="pk_compliance_events_aud"/>
+    </changeSet>
+
+</databaseChangeLog>

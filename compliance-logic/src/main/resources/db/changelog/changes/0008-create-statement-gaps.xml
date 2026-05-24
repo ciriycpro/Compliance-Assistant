@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0008-1-create-statement-gaps" author="claude+iakshin">
+        <comment>StatementGap — обнаруженный пробел в банковских выписках, DEC-023 v1.0 Inspector</comment>
+
+        <createTable tableName="statement_gaps">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_statement_gaps_client" references="clients(id)"/>
+            </column>
+            <column name="counterparty_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_statement_gaps_bank" references="counterparties(id)"/>
+            </column>
+            <column name="bank_name" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="gap_start" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="gap_end" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)" defaultValue="DETECTED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="detected_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_request_at" type="timestamp with time zone"/>
+            <column name="closed_at" type="timestamp with time zone"/>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="statement_gaps" indexName="idx_statement_gaps_client">
+            <column name="client_id"/>
+        </createIndex>
+        <createIndex tableName="statement_gaps" indexName="idx_statement_gaps_bank">
+            <column name="counterparty_id"/>
+        </createIndex>
+        <createIndex tableName="statement_gaps" indexName="idx_statement_gaps_status">
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="statement_gaps" indexName="idx_statement_gaps_detected_at">
+            <column name="detected_at"/>
+        </createIndex>
+        <createIndex tableName="statement_gaps" indexName="idx_statement_gaps_gap_period">
+            <column name="gap_start"/>
+            <column name="gap_end"/>
+        </createIndex>
+
+        <addUniqueConstraint
+            tableName="statement_gaps"
+            columnNames="client_id, counterparty_id, gap_start, gap_end"
+            constraintName="uk_statement_gaps_client_bank_period"/>
+
+    </changeSet>
+
+    <changeSet id="0008-2-create-statement-gaps-aud" author="claude+iakshin">
+        <comment>Envers audit table для StatementGap</comment>
+
+        <createTable tableName="statement_gaps_aud">
+            <column name="rev" type="integer">
+                <constraints nullable="false" foreignKeyName="fk_statement_gaps_aud_rev" references="revinfo(rev)"/>
+            </column>
+            <column name="revtype" type="smallint"/>
+            <column name="id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid"/>
+            <column name="counterparty_id" type="uuid"/>
+            <column name="bank_name" type="varchar(200)"/>
+            <column name="gap_start" type="date"/>
+            <column name="gap_end" type="date"/>
+            <column name="status" type="varchar(20)"/>
+            <column name="detected_at" type="timestamp with time zone"/>
+            <column name="last_request_at" type="timestamp with time zone"/>
+            <column name="closed_at" type="timestamp with time zone"/>
+            <column name="created_at" type="timestamp with time zone"/>
+            <column name="updated_at" type="timestamp with time zone"/>
+        </createTable>
+
+        <addPrimaryKey tableName="statement_gaps_aud" columnNames="id, rev" constraintName="pk_statement_gaps_aud"/>
+    </changeSet>
+
+</databaseChangeLog>

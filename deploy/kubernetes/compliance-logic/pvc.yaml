@@ -1,0 +1,14 @@
+# PersistentVolumeClaim для blob-файлов документов
+# 50Gi для v1.0 — будет расти со временем (Backfill 12 месяцев архива)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: compliance-files-pvc
+  namespace: compliance-assistant
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard

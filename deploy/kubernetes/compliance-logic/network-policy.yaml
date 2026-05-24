@@ -1,0 +1,48 @@
+# NetworkPolicy: только orchestrator может звать compliance-logic
+# DEC-017 Уровень 1 — внутренняя сеть
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: compliance-logic-network-policy
+  namespace: compliance-assistant
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: compliance-logic
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Разрешаем входящие только от orchestrator pods
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: orchestrator
+    ports:
+    - protocol: TCP
+      port: 8771
+  # Также от monitoring (Prometheus)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8771
+  egress:
+  # Только Postgres + DNS
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53

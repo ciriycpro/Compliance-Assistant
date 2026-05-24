@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: compliance-logic-config
+  namespace: compliance-assistant
+data:
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres.compliance-assistant.svc.cluster.local:5432/compliance"
+  SPRING_DATASOURCE_USERNAME: "compliance_app"
+  SERVER_PORT: "8771"
+  SERVER_ADDRESS: "0.0.0.0"
+  COMPLIANCE_STORAGE_BASE_DIR: "/var/lib/compliance-files"
+  LOGGING_LEVEL_ROOT: "INFO"
+  LOGGING_LEVEL_RU_CIRIYCPRO: "INFO"

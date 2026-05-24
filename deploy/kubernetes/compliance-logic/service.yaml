@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: compliance-logic
+  namespace: compliance-assistant
+  labels:
+    app.kubernetes.io/name: compliance-logic
+spec:
+  type: ClusterIP   # внутренний доступ только из namespace
+  selector:
+    app.kubernetes.io/name: compliance-logic
+  ports:
+  - port: 8771
+    targetPort: 8771
+    protocol: TCP
+    name: http
