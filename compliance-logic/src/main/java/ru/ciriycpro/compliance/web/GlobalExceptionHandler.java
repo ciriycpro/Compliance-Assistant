@@ -13,6 +13,7 @@ import ru.ciriycpro.compliance.service.ComplianceEventService;
 import ru.ciriycpro.compliance.service.CounterpartyService;
 import ru.ciriycpro.compliance.service.DocumentService;
 import ru.ciriycpro.compliance.service.MoneyOperationService;
+import ru.ciriycpro.compliance.service.StatementCalendarService;
 import ru.ciriycpro.compliance.service.StatementGapInspectorService;
 import ru.ciriycpro.compliance.service.StatementService;
 
@@ -50,6 +51,9 @@ public class GlobalExceptionHandler {
             MoneyOperationService.CounterpartyNotFoundException.class,
             MoneyOperationService.MoneyOperationNotFoundException.class,
             BackfillService.ClientNotFoundException.class,
+            StatementCalendarService.ClientNotFoundException.class,
+            StatementCalendarService.BankNotFoundException.class,
+            StatementCalendarService.CalendarNotFoundException.class,
             BackfillService.BackfillJobNotFoundException.class,
             StatementGapInspectorService.ClientNotFoundException.class,
             ComplianceEventService.EventNotFoundException.class
@@ -64,7 +68,8 @@ public class GlobalExceptionHandler {
             CounterpartyService.DuplicateCounterpartyException.class,
             DocumentService.DuplicateDocumentException.class,
             StatementService.DuplicateStatementException.class,
-            BackfillService.IllegalBackfillStateException.class
+            BackfillService.IllegalBackfillStateException.class,
+            StatementCalendarService.DuplicateCalendarException.class
     })
     public ResponseEntity<Map<String, Object>> handleConflict(RuntimeException e) {
         log.warn("409 Conflict: {}", e.getMessage());

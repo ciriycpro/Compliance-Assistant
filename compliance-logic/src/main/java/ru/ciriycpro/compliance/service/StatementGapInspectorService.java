@@ -14,6 +14,9 @@ import ru.ciriycpro.compliance.registry.StatementGap;
 import ru.ciriycpro.compliance.registry.StatementGapRepository;
 import ru.ciriycpro.compliance.registry.StatementGapStatus;
 import ru.ciriycpro.compliance.registry.StatementRepository;
+import ru.ciriycpro.compliance.registry.StatementCalendar;
+import ru.ciriycpro.compliance.registry.StatementCalendarRepository;
+import ru.ciriycpro.compliance.registry.StatementFrequency;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -48,15 +51,18 @@ public class StatementGapInspectorService {
     private final CounterpartyRepository counterpartyRepository;
     private final StatementRepository statementRepository;
     private final StatementGapRepository statementGapRepository;
+    private final StatementCalendarRepository statementCalendarRepository;
 
     public StatementGapInspectorService(ClientRepository clientRepository,
                                         CounterpartyRepository counterpartyRepository,
                                         StatementRepository statementRepository,
-                                        StatementGapRepository statementGapRepository) {
+                                        StatementGapRepository statementGapRepository,
+                                        StatementCalendarRepository statementCalendarRepository) {
         this.clientRepository = clientRepository;
         this.counterpartyRepository = counterpartyRepository;
         this.statementRepository = statementRepository;
         this.statementGapRepository = statementGapRepository;
+        this.statementCalendarRepository = statementCalendarRepository;
     }
 
     /**
@@ -136,11 +142,122 @@ public class StatementGapInspectorService {
             }
         }
 
-        log.info("client scan completed client_inn={} banks={} gaps_found={} gaps_created={}",
-                client.getInn(), banks.size(), gapsFound, gapsCreated);
+        // Calendar-based scan: expected periods из StatementCalendar
+        CalendarScanResult calRes = scanCalendarsForClient(client);
+        gapsFound += calRes.expectedPeriodsFound();
+        gapsCreated += calRes.gapsCreated();
+
+        log.info("client scan completed client_inn={} banks={} calendars={} expected={} gaps_found={} gaps_created={}",
+                client.getInn(), banks.size(), calRes.calendarsScanned(), calRes.expectedPeriodsFound(), gapsFound, gapsCreated);
         return new ClientScanResult(client.getId(), banks.size(), gapsFound, gapsCreated);
     }
 
+    /**
+     * Calendar-based scan: для каждого active StatementCalendar клиента
+     * генерирует expected periods, сравнивает с existing Statements,
+     * создаёт gaps для отсутствующих ожидаемых периодов.
+     *
+     * Lower bound: max(client.monitoring_period_start, calendar.start_period, now() - 12 месяцев)
+     * Upper bound: today
+     *
+     * Шаг между периодами зависит от frequency:
+     *   MONTHLY → 1 month
+     *   QUARTERLY → 3 months
+     *   ANNUAL → 1 year
+     */
+    private CalendarScanResult scanCalendarsForClient(Client client) {
+        List<StatementCalendar> calendars = statementCalendarRepository.findByClientIdAndActiveTrue(client.getId());
+        if (calendars.isEmpty()) {
+            return new CalendarScanResult(0, 0, 0);
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate twelveMonthsAgo = today.minusMonths(12);
+        LocalDate monitoringStart = client.getMonitoringPeriodStart();
+
+        int calendarsScanned = 0;
+        int expectedPeriodsFound = 0;
+        int gapsCreated = 0;
+
+        for (StatementCalendar cal : calendars) {
+            calendarsScanned++;
+            Counterparty bank = cal.getBank();
+
+            // effective start = max из трёх дат
+            LocalDate effectiveStart = cal.getStartPeriod();
+            if (monitoringStart != null && monitoringStart.isAfter(effectiveStart)) {
+                effectiveStart = monitoringStart;
+            }
+            if (twelveMonthsAgo.isAfter(effectiveStart)) {
+                effectiveStart = twelveMonthsAgo;
+            }
+
+            // Список existing Statement для (client, bank) — нужен для матчинга
+            List<Statement> existingStatements = statementRepository
+                    .findByClientIdAndBankIdOrderByPeriodStartAsc(client.getId(), bank.getId());
+
+            // Генерируем expected periods
+            LocalDate periodStart = normalizeToStart(effectiveStart, cal.getFrequency());
+            while (!periodStart.isAfter(today)) {
+                LocalDate periodEnd = computePeriodEnd(periodStart, cal.getFrequency());
+
+                // Если period_end в будущем — пропускаем (период ещё не закончился)
+                if (periodEnd.isAfter(today)) {
+                    break;
+                }
+
+                expectedPeriodsFound++;
+
+                // Проверяем: покрыт ли этот expected period каким-то существующим Statement?
+                LocalDate ps = periodStart;
+                LocalDate pe = periodEnd;
+                boolean covered = existingStatements.stream().anyMatch(s ->
+                    !s.getPeriodStart().isAfter(ps) && !s.getPeriodEnd().isBefore(pe)
+                );
+
+                if (!covered) {
+                    boolean created = createGapIfNotExists(client, bank, periodStart, periodEnd);
+                    if (created) gapsCreated++;
+                }
+
+                periodStart = advancePeriod(periodStart, cal.getFrequency());
+            }
+        }
+
+        return new CalendarScanResult(calendarsScanned, expectedPeriodsFound, gapsCreated);
+    }
+
+    /** Нормализация даты к началу периода (для MONTHLY — 1-е число месяца). */
+    private LocalDate normalizeToStart(LocalDate d, StatementFrequency f) {
+        return switch (f) {
+            case MONTHLY -> d.withDayOfMonth(1);
+            case QUARTERLY -> {
+                int qStartMonth = ((d.getMonthValue() - 1) / 3) * 3 + 1;
+                yield LocalDate.of(d.getYear(), qStartMonth, 1);
+            }
+            case ANNUAL -> LocalDate.of(d.getYear(), 1, 1);
+        };
+    }
+
+    /** Конец периода: для MONTHLY — последнее число того же месяца. */
+    private LocalDate computePeriodEnd(LocalDate start, StatementFrequency f) {
+        return switch (f) {
+            case MONTHLY -> start.withDayOfMonth(start.lengthOfMonth());
+            case QUARTERLY -> start.plusMonths(3).minusDays(1);
+            case ANNUAL -> start.plusYears(1).minusDays(1);
+        };
+    }
+
+    /** Следующий период: для MONTHLY — +1 месяц. */
+    private LocalDate advancePeriod(LocalDate start, StatementFrequency f) {
+        return switch (f) {
+            case MONTHLY -> start.plusMonths(1);
+            case QUARTERLY -> start.plusMonths(3);
+            case ANNUAL -> start.plusYears(1);
+        };
+    }
+
+    public record CalendarScanResult(int calendarsScanned, int expectedPeriodsFound, int gapsCreated) {}
     private boolean createGapIfNotExists(Client client, Counterparty bank, LocalDate gapStart, LocalDate gapEnd) {
         return statementGapRepository
                 .findByClientIdAndBankIdAndGapStartAndGapEnd(client.getId(), bank.getId(), gapStart, gapEnd)

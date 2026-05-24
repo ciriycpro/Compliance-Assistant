@@ -40,6 +40,9 @@ public class Client {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @jakarta.persistence.Column(name = "monitoring_period_start")
+    private java.time.LocalDate monitoringPeriodStart;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = Instant.now();
@@ -68,4 +71,7 @@ public class Client {
 
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    public java.time.LocalDate getMonitoringPeriodStart() { return monitoringPeriodStart; }
+    public void setMonitoringPeriodStart(java.time.LocalDate v) { this.monitoringPeriodStart = v; }
 }

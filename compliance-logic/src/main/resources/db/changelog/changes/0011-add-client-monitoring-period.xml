@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0011-1-add-monitoring-period-start-clients" author="claude+iakshin">
+        <comment>Client.monitoring_period_start — дата с которой Inspector смотрит выписки. SECURITY_DEBT #17.</comment>
+        <addColumn tableName="clients">
+            <column name="monitoring_period_start" type="date"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0011-2-add-monitoring-period-start-clients-aud" author="claude+iakshin">
+        <comment>Envers audit support для monitoring_period_start</comment>
+        <addColumn tableName="clients_aud">
+            <column name="monitoring_period_start" type="date"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

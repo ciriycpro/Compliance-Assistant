@@ -15,5 +15,7 @@
     <include file="db/changelog/changes/0008-create-statement-gaps.xml"/>
     <include file="db/changelog/changes/0009-create-compliance-events.xml"/>
     <include file="db/changelog/changes/0010-create-backfill-jobs.xml"/>
+    <include file="db/changelog/changes/0011-add-client-monitoring-period.xml"/>
+    <include file="db/changelog/changes/0012-create-statement-calendars.xml"/>
 
 </databaseChangeLog>

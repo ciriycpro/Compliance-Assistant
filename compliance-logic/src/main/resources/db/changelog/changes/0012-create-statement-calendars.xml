@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0012-1-create-statement-calendars" author="claude+iakshin">
+        <comment>StatementCalendar — ожидания по периодичности выписок (DEC-023 v1.5, SECURITY_DEBT #18)</comment>
+        <createTable tableName="statement_calendars">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_statement_cal_client" references="clients(id)"/>
+            </column>
+            <column name="bank_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_statement_cal_bank" references="counterparties(id)"/>
+            </column>
+            <column name="frequency" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="start_period" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="statement_calendars" indexName="idx_statement_cal_client">
+            <column name="client_id"/>
+        </createIndex>
+        <createIndex tableName="statement_calendars" indexName="idx_statement_cal_bank">
+            <column name="bank_id"/>
+        </createIndex>
+        <createIndex tableName="statement_calendars" indexName="idx_statement_cal_active">
+            <column name="active"/>
+        </createIndex>
+        <addUniqueConstraint tableName="statement_calendars" columnNames="client_id, bank_id, frequency" constraintName="uq_statement_cal_client_bank_freq"/>
+    </changeSet>
+
+    <changeSet id="0012-2-create-statement-calendars-aud" author="claude+iakshin">
+        <comment>Envers audit table для StatementCalendar</comment>
+        <createTable tableName="statement_calendars_aud">
+            <column name="rev" type="integer">
+                <constraints nullable="false" foreignKeyName="fk_statement_cal_aud_rev" references="revinfo(rev)"/>
+            </column>
+            <column name="revtype" type="smallint"/>
+            <column name="id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid"/>
+            <column name="bank_id" type="uuid"/>
+            <column name="frequency" type="varchar(20)"/>
+            <column name="start_period" type="date"/>
+            <column name="active" type="boolean"/>
+            <column name="created_at" type="timestamp with time zone"/>
+            <column name="updated_at" type="timestamp with time zone"/>
+        </createTable>
+        <addPrimaryKey tableName="statement_calendars_aud" columnNames="id, rev" constraintName="pk_statement_cal_aud"/>
+    </changeSet>
+
+</databaseChangeLog>
