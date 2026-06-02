@@ -1,13 +1,13 @@
-# Compliance Assistant — mail-stack production code
+# Compliance Assistant — production code
 
 Production code for **Compliance Assistant** (DEC-014 v1.2.2) — multi-service mail processing stack running on coo (GCP e2-small).
 
-## Точка входа для AI-ассистента
+## Архитектура и решения
 
 Архитектурные решения (ADR, C4 diagrams, Service Blueprint) живут отдельно:  
-👉 **https://github.com/ciriycpro/architect** — workspace `tairov/`
+**https://github.com/ciriycpro/architect** — workspace `tairov/`
 
-Здесь только **production-код** 7 микросервисов в их текущем состоянии. Когда нужен контекст «почему так» — смотри ADR в `architect` репо.
+Здесь — production-код сервисов в их текущем состоянии. Когда нужен контекст «почему так» — смотри ADR в `architect` репо.
 
 ## Сервисы
 
@@ -20,6 +20,9 @@ Production code for **Compliance Assistant** (DEC-014 v1.2.2) — multi-service 
 | `parser-service/` | Python 3.10 + FastAPI + LLM-vision | 8767 | v1.0 | DEC-008 |
 | `summary-service/` | Python 3.11 + FastAPI + Claude Haiku | 8768 | v1.0 | DEC-009 |
 | `agent-caller/` | Node.js + whatsapp-web.js + node-telegram-bot-api | 3000 | v1.2.2 | DEC-005 |
+| `compliance-logic/` | Java 21 + Spring Boot 3.5 + Postgres + Liquibase, mTLS | 8771 | v0.0.1 | DEC-023 |
+
+`compliance-logic` — бизнес-tier (Spring): source-of-truth БД и реестр сущностей, развёрнут отдельно от mail-stack, в активной разработке.
 
 ## Архитектурный поток (production)
 Cron (10:00 МСК) ──┐                       ┌── Telegram дайджест
