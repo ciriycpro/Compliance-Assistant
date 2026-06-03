@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0017-1-add-contract-ref" author="claude+iakshin">
+        <comment>contract_ref — основание (номер договора из назначения платежа). Матч операция↔договор по номеру. DEC-023 Коммит 4.</comment>
+        <addColumn tableName="reconciliation_flags">
+            <column name="contract_ref" type="varchar(100)"/>
+        </addColumn>
+        <createIndex tableName="reconciliation_flags" indexName="idx_recflags_contract_ref">
+            <column name="contract_ref"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0017-2-add-contract-ref-aud" author="claude+iakshin">
+        <comment>contract_ref в audit-таблице</comment>
+        <addColumn tableName="reconciliation_flags_aud">
+            <column name="contract_ref" type="varchar(100)"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

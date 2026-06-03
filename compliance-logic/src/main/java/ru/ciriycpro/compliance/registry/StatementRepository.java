@@ -19,6 +19,8 @@ public interface StatementRepository extends JpaRepository<Statement, UUID> {
 
     Optional<Statement> findByDocumentId(UUID documentId);
 
+    List<Statement> findByAccountNumber(String accountNumber);
+
     List<Statement> findByClientIdAndBankIdOrderByPeriodStartAsc(UUID clientId, UUID bankId);
 
     List<Statement> findByClientIdAndPeriodStartGreaterThanEqualAndPeriodEndLessThanEqual(

@@ -17,5 +17,16 @@
     <include file="db/changelog/changes/0010-create-backfill-jobs.xml"/>
     <include file="db/changelog/changes/0011-add-client-monitoring-period.xml"/>
     <include file="db/changelog/changes/0012-create-statement-calendars.xml"/>
+    <include file="db/changelog/changes/0013-add-operation-class.xml"/>
+    <include file="db/changelog/changes/0014-create-contracts.xml"/>
+    <include file="db/changelog/changes/0015-create-acts.xml"/>
+    <include file="db/changelog/changes/0016-create-reconciliation-flags.xml"/>
+    <include file="db/changelog/changes/0017-add-contract-ref.xml"/>
+    <include file="db/changelog/changes/0018-create-tenant.xml"/>
+    <include file="db/changelog/changes/0019-add-tenant-to-client.xml"/>
+    <include file="db/changelog/changes/0020-extend-statement-gaps.xml"/>
+    <include file="db/changelog/changes/0021-create-notification.xml"/>
+    <include file="db/changelog/changes/0022-client-contact-and-policy.xml"/>
+    <include file="db/changelog/changes/0023-add-statement-account.xml"/>
 
 </databaseChangeLog>

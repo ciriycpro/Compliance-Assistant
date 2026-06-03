@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0013-1-add-operation-class-money-operations" author="claude+iakshin">
+        <comment>MoneyOperation.operation_class — пре-классификатор, гейт для Reconciler. DEC-023 Коммит 4.</comment>
+        <addColumn tableName="money_operations">
+            <column name="operation_class" type="varchar(20)"/>
+        </addColumn>
+        <createIndex tableName="money_operations" indexName="idx_money_ops_operation_class">
+            <column name="operation_class"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0013-2-add-operation-class-money-operations-aud" author="claude+iakshin">
+        <comment>Envers audit support для operation_class</comment>
+        <addColumn tableName="money_operations_aud">
+            <column name="operation_class" type="varchar(20)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0013-3-add-operation-class-check-constraint" author="claude+iakshin">
+        <comment>CHECK constraint на operation_class</comment>
+        <sql>
+            ALTER TABLE money_operations ADD CONSTRAINT ck_money_ops_operation_class
+            CHECK (operation_class IS NULL OR operation_class IN
+            ('OWN_TRANSFER','TAX','BANK_FEE','CARD_ACQUIRING','COUNTERPARTY'));
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

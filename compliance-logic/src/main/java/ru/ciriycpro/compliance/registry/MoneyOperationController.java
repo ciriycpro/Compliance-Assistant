@@ -32,7 +32,7 @@ public class MoneyOperationController {
                 req.purpose(), req.counterpartyInnRaw(), req.counterpartyNameRaw(),
                 req.parsedContractNumber(), req.parsedContractDate(), req.parsedInvoiceNumber(),
                 req.parsedSubject(), req.parsedSubjectCategory(),
-                req.parsedQuantity(), req.parsedUnit(), req.parsedVatAmount(), req.parsingConfidence()
+                req.parsedQuantity(), req.parsedUnit(), req.parsedVatAmount(), req.parsingConfidence(), req.operationClass()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
@@ -75,7 +75,8 @@ public class MoneyOperationController {
                 op.getParsedSubject(), op.getParsedSubjectCategory(),
                 op.getParsedQuantity(), op.getParsedUnit(), op.getParsedVatAmount(), op.getParsingConfidence(),
                 op.getLinkedContractId(), op.getLinkedActId(),
-                op.getCreatedAt(), op.getUpdatedAt()
+                op.getCreatedAt(), op.getUpdatedAt(),
+                op.getOperationClass() != null ? op.getOperationClass().name() : null
         );
     }
 
@@ -97,7 +98,8 @@ public class MoneyOperationController {
             BigDecimal parsedQuantity,
             String parsedUnit,
             BigDecimal parsedVatAmount,
-            BigDecimal parsingConfidence
+            BigDecimal parsingConfidence,
+            OperationClass operationClass
     ) {}
 
     public record MoneyOperationResponse(
@@ -108,6 +110,6 @@ public class MoneyOperationController {
             String parsedSubject, String parsedSubjectCategory,
             BigDecimal parsedQuantity, String parsedUnit, BigDecimal parsedVatAmount, BigDecimal parsingConfidence,
             UUID linkedContractId, UUID linkedActId,
-            Instant createdAt, Instant updatedAt
+            Instant createdAt, Instant updatedAt, String operationClass
     ) {}
 }

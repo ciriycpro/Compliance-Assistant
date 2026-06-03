@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.ciriycpro.compliance.registry.Client;
 import ru.ciriycpro.compliance.registry.ClientRepository;
 import ru.ciriycpro.compliance.registry.Counterparty;
+import ru.ciriycpro.compliance.registry.CounterpartyNameNormalizer;
 import ru.ciriycpro.compliance.registry.CounterpartyRepository;
 import ru.ciriycpro.compliance.registry.CounterpartyTrustLevel;
 
@@ -53,7 +54,7 @@ public class CounterpartyService {
         Counterparty cp = new Counterparty();
         cp.setClient(client);
         cp.setInn(inn);
-        cp.setName(name);
+        cp.setName(CounterpartyNameNormalizer.normalize(name));
         cp.setTrustLevel(trustLevel != null ? trustLevel : CounterpartyTrustLevel.NEUTRAL);
         cp.setNotes(notes);
 
@@ -61,6 +62,22 @@ public class CounterpartyService {
         log.info("counterparty created id={} client_id={} inn={} name={} trust={}",
                 saved.getId(), client.getId(), saved.getInn(), saved.getName(), saved.getTrustLevel());
         return saved;
+    }
+
+    @Transactional
+    public int normalizeAllNames() {
+        int changed = 0;
+        for (Counterparty cp : counterpartyRepository.findAll()) {
+            String old = cp.getName();
+            String norm = CounterpartyNameNormalizer.normalize(old);
+            if (norm != null && !norm.equals(old)) {
+                cp.setName(norm);
+                counterpartyRepository.save(cp);
+                changed++;
+            }
+        }
+        log.info("counterparty names normalized: {} of total", changed);
+        return changed;
     }
 
     public Optional<Counterparty> findById(UUID id) {

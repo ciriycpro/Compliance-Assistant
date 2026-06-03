@@ -12,6 +12,7 @@ import ru.ciriycpro.compliance.registry.Counterparty;
 import ru.ciriycpro.compliance.registry.CounterpartyRepository;
 import ru.ciriycpro.compliance.registry.MoneyOperation;
 import ru.ciriycpro.compliance.registry.MoneyOperationRepository;
+import ru.ciriycpro.compliance.registry.OperationClass;
 import ru.ciriycpro.compliance.registry.OperationDirection;
 import ru.ciriycpro.compliance.registry.Statement;
 import ru.ciriycpro.compliance.registry.StatementRepository;
@@ -67,7 +68,7 @@ public class MoneyOperationService {
                                  String parsedInvoiceNumber, String parsedSubject,
                                  String parsedSubjectCategory, BigDecimal parsedQuantity,
                                  String parsedUnit, BigDecimal parsedVatAmount,
-                                 BigDecimal parsingConfidence) {
+                                 BigDecimal parsingConfidence, OperationClass operationClass) {
 
         if (amount == null || amount.signum() <= 0) {
             throw new InvalidAmountException("amount must be positive, got: " + amount);
@@ -113,6 +114,7 @@ public class MoneyOperationService {
         op.setParsedUnit(parsedUnit);
         op.setParsedVatAmount(parsedVatAmount);
         op.setParsingConfidence(parsingConfidence);
+        op.setOperationClass(operationClass);
 
         MoneyOperation saved = moneyOperationRepository.save(op);
         log.info("money_operation created id={} client_inn={} stmt={} date={} dir={} amount={} category={} contract={}",

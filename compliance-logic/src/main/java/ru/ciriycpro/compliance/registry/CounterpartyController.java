@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import ru.ciriycpro.compliance.service.CounterpartyService;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -22,6 +23,12 @@ public class CounterpartyController {
 
     public CounterpartyController(CounterpartyService counterpartyService) {
         this.counterpartyService = counterpartyService;
+    }
+
+    /** Одноразовая нормализация имён существующих контрагентов (ООО/ИП/АО + чистка артефактов). */
+    @PostMapping("/admin/counterparties/normalize")
+    public ResponseEntity<Map<String, Integer>> normalizeNames() {
+        return ResponseEntity.ok(Map.of("normalized", counterpartyService.normalizeAllNames()));
     }
 
     @PostMapping("/counterparties")

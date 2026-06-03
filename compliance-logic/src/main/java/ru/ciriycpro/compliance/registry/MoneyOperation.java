@@ -33,7 +33,8 @@ import java.util.UUID;
         @Index(name = "idx_money_ops_direction", columnList = "direction"),
         @Index(name = "idx_money_ops_linked_contract", columnList = "linked_contract_id"),
         @Index(name = "idx_money_ops_parsed_contract", columnList = "parsed_contract_number"),
-        @Index(name = "idx_money_ops_parsed_category", columnList = "parsed_subject_category")
+        @Index(name = "idx_money_ops_parsed_category", columnList = "parsed_subject_category"),
+        @Index(name = "idx_money_ops_operation_class", columnList = "operation_class")
     }
 )
 public class MoneyOperation {
@@ -105,6 +106,10 @@ public class MoneyOperation {
 
     @Column(name = "parsing_confidence", precision = 3, scale = 2)
     private BigDecimal parsingConfidence;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "operation_class", length = 20)
+    private OperationClass operationClass;
 
     @Column(name = "linked_contract_id", columnDefinition = "uuid")
     private UUID linkedContractId;
@@ -185,6 +190,9 @@ public class MoneyOperation {
 
     public BigDecimal getParsingConfidence() { return parsingConfidence; }
     public void setParsingConfidence(BigDecimal parsingConfidence) { this.parsingConfidence = parsingConfidence; }
+
+    public OperationClass getOperationClass() { return operationClass; }
+    public void setOperationClass(OperationClass operationClass) { this.operationClass = operationClass; }
 
     public UUID getLinkedContractId() { return linkedContractId; }
     public void setLinkedContractId(UUID linkedContractId) { this.linkedContractId = linkedContractId; }

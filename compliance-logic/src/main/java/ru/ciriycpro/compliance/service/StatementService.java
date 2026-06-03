@@ -58,6 +58,15 @@ public class StatementService {
                             LocalDate periodStart, LocalDate periodEnd,
                             String sourceMessageId, BigDecimal amountTotal,
                             Integer operationCount, String currency) {
+        return create(documentId, clientId, bankId, bankName, periodStart, periodEnd,
+                sourceMessageId, amountTotal, operationCount, currency, null);
+    }
+
+    @Transactional
+    public Statement create(UUID documentId, UUID clientId, UUID bankId, String bankName,
+                            LocalDate periodStart, LocalDate periodEnd,
+                            String sourceMessageId, BigDecimal amountTotal,
+                            Integer operationCount, String currency, String accountNumber) {
 
         if (periodStart != null && periodEnd != null && periodEnd.isBefore(periodStart)) {
             throw new InvalidPeriodException("period_end (" + periodEnd + ") is before period_start (" + periodStart + ")");
@@ -92,6 +101,7 @@ public class StatementService {
         st.setAmountTotal(amountTotal);
         st.setOperationCount(operationCount);
         st.setCurrency(currency != null ? currency : "RUB");
+        st.setAccountNumber(accountNumber);
 
         Statement saved = statementRepository.save(st);
         log.info("statement created id={} client_inn={} bank={} period={}..{} amount_total={} ops={}",

@@ -79,6 +79,25 @@ public class StatementGap {
     @Column(name = "closed_at")
     private Instant closedAt;
 
+    // === поля петли алертов (DEC арх-догма: мульти-тенант/хай-лоад заранее) ===
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
+    @Column(name = "reminder_no", nullable = false)
+    private int reminderNo = 0;
+
+    @Column(name = "next_action_at")
+    private Instant nextActionAt;
+
+    @Column(name = "escalated_at")
+    private Instant escalatedAt;
+
+    @Column(name = "last_channel", length = 20)
+    private String lastChannel;
+
+    @Column(name = "resolved_by_statement_id")
+    private UUID resolvedByStatementId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -127,6 +146,24 @@ public class StatementGap {
 
     public Instant getClosedAt() { return closedAt; }
     public void setClosedAt(Instant closedAt) { this.closedAt = closedAt; }
+
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
+
+    public int getReminderNo() { return reminderNo; }
+    public void setReminderNo(int reminderNo) { this.reminderNo = reminderNo; }
+
+    public Instant getNextActionAt() { return nextActionAt; }
+    public void setNextActionAt(Instant nextActionAt) { this.nextActionAt = nextActionAt; }
+
+    public Instant getEscalatedAt() { return escalatedAt; }
+    public void setEscalatedAt(Instant escalatedAt) { this.escalatedAt = escalatedAt; }
+
+    public String getLastChannel() { return lastChannel; }
+    public void setLastChannel(String lastChannel) { this.lastChannel = lastChannel; }
+
+    public UUID getResolvedByStatementId() { return resolvedByStatementId; }
+    public void setResolvedByStatementId(UUID resolvedByStatementId) { this.resolvedByStatementId = resolvedByStatementId; }
 
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

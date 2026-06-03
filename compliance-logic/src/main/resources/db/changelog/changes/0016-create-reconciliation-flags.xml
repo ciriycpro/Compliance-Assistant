@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0016-1-create-reconciliation-flags" author="claude+iakshin">
+        <comment>ReconciliationFlag — stateful флаг сверки (Reconciler). Открытые MISSING_CONTRACT = реестр отсутствующих договоров. DEC-023 Коммит 4.</comment>
+
+        <createTable tableName="reconciliation_flags">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_recflags_client" references="clients(id)"/>
+            </column>
+            <column name="counterparty_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_recflags_counterparty" references="counterparties(id)"/>
+            </column>
+            <column name="flag_type" type="varchar(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="detected_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_request_at" type="timestamp with time zone"/>
+            <column name="resolved_at" type="timestamp with time zone"/>
+            <column name="operation_count" type="integer"/>
+            <column name="total_amount" type="decimal(18,2)"/>
+            <column name="details" type="varchar(500)"/>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="reconciliation_flags" indexName="idx_recflags_client">
+            <column name="client_id"/>
+        </createIndex>
+        <createIndex tableName="reconciliation_flags" indexName="idx_recflags_counterparty">
+            <column name="counterparty_id"/>
+        </createIndex>
+        <createIndex tableName="reconciliation_flags" indexName="idx_recflags_status">
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="reconciliation_flags" indexName="idx_recflags_client_status">
+            <column name="client_id"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="reconciliation_flags" indexName="idx_recflags_type">
+            <column name="flag_type"/>
+        </createIndex>
+
+        <sql>
+            ALTER TABLE reconciliation_flags ADD CONSTRAINT ck_recflags_type
+            CHECK (flag_type IN ('MISSING_CONTRACT'));
+            ALTER TABLE reconciliation_flags ADD CONSTRAINT ck_recflags_status
+            CHECK (status IN ('DETECTED','REQUEST_SENT','RESOLVED'));
+        </sql>
+    </changeSet>
+
+    <changeSet id="0016-2-create-reconciliation-flags-aud" author="claude+iakshin">
+        <comment>Envers audit table для reconciliation_flags</comment>
+        <createTable tableName="reconciliation_flags_aud">
+            <column name="rev" type="integer">
+                <constraints nullable="false" foreignKeyName="fk_recflags_aud_rev" references="revinfo(rev)"/>
+            </column>
+            <column name="revtype" type="smallint"/>
+            <column name="id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid"/>
+            <column name="counterparty_id" type="uuid"/>
+            <column name="flag_type" type="varchar(30)"/>
+            <column name="status" type="varchar(20)"/>
+            <column name="detected_at" type="timestamp with time zone"/>
+            <column name="last_request_at" type="timestamp with time zone"/>
+            <column name="resolved_at" type="timestamp with time zone"/>
+            <column name="operation_count" type="integer"/>
+            <column name="total_amount" type="decimal(18,2)"/>
+            <column name="details" type="varchar(500)"/>
+            <column name="created_at" type="timestamp with time zone"/>
+            <column name="updated_at" type="timestamp with time zone"/>
+        </createTable>
+        <addPrimaryKey tableName="reconciliation_flags_aud" columnNames="id, rev" constraintName="pk_recflags_aud"/>
+    </changeSet>
+
+</databaseChangeLog>

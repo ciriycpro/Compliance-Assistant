@@ -19,6 +19,7 @@ import ru.ciriycpro.compliance.registry.StatementCalendarRepository;
 import ru.ciriycpro.compliance.registry.StatementFrequency;
 
 import java.time.LocalDate;
+import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -74,6 +75,7 @@ public class StatementGapInspectorService {
         int clientsScanned = 0;
         int totalGapsFound = 0;
         int totalGapsCreated = 0;
+        int totalGapsClosed = 0;
 
         List<Client> activeClients = clientRepository.findAll().stream()
                 .filter(c -> c.getStatus() == ClientStatus.ACTIVE)
@@ -84,13 +86,14 @@ public class StatementGapInspectorService {
             ClientScanResult cr = scanClient(client.getId());
             totalGapsFound += cr.gapsFound();
             totalGapsCreated += cr.gapsCreated();
+            totalGapsClosed += cr.gapsClosed();
         }
 
         long durationMs = System.currentTimeMillis() - startMs;
-        log.info("inspector full scan completed clients={} gaps_found={} gaps_created={} duration_ms={}",
-                clientsScanned, totalGapsFound, totalGapsCreated, durationMs);
+        log.info("inspector full scan completed clients={} gaps_found={} gaps_created={} gaps_closed={} duration_ms={}",
+                clientsScanned, totalGapsFound, totalGapsCreated, totalGapsClosed, durationMs);
 
-        return new ScanResult(clientsScanned, totalGapsFound, totalGapsCreated, durationMs);
+        return new ScanResult(clientsScanned, totalGapsFound, totalGapsCreated, totalGapsClosed, durationMs);
     }
 
     /**
@@ -108,10 +111,14 @@ public class StatementGapInspectorService {
 
         int gapsFound = 0;
         int gapsCreated = 0;
+        int gapsClosed = 0;
 
         for (Counterparty bank : banks) {
             List<Statement> bankStatements = statementRepository
                     .findByClientIdAndBankIdOrderByPeriodStartAsc(clientId, bank.getId());
+
+            // Закрытие: любая открытая дыра банка, полностью покрытая выписками → CLOSED
+            gapsClosed += closeCoveredGaps(client, bank, bankStatements);
 
             if (bankStatements.size() < 2) {
                 continue;  // нужно минимум 2 statement чтобы между ними был gap
@@ -147,9 +154,9 @@ public class StatementGapInspectorService {
         gapsFound += calRes.expectedPeriodsFound();
         gapsCreated += calRes.gapsCreated();
 
-        log.info("client scan completed client_inn={} banks={} calendars={} expected={} gaps_found={} gaps_created={}",
-                client.getInn(), banks.size(), calRes.calendarsScanned(), calRes.expectedPeriodsFound(), gapsFound, gapsCreated);
-        return new ClientScanResult(client.getId(), banks.size(), gapsFound, gapsCreated);
+        log.info("client scan completed client_inn={} banks={} calendars={} expected={} gaps_found={} gaps_created={} gaps_closed={}",
+                client.getInn(), banks.size(), calRes.calendarsScanned(), calRes.expectedPeriodsFound(), gapsFound, gapsCreated, gapsClosed);
+        return new ClientScanResult(client.getId(), banks.size(), gapsFound, gapsCreated, gapsClosed);
     }
 
     /**
@@ -157,7 +164,7 @@ public class StatementGapInspectorService {
      * генерирует expected periods, сравнивает с existing Statements,
      * создаёт gaps для отсутствующих ожидаемых периодов.
      *
-     * Lower bound: max(client.monitoring_period_start, calendar.start_period, now() - 12 месяцев)
+     * Lower bound: max(client.monitoring_period_start, calendar.start_period, 2025-01-01 floor)
      * Upper bound: today
      *
      * Шаг между периодами зависит от frequency:
@@ -172,7 +179,7 @@ public class StatementGapInspectorService {
         }
 
         LocalDate today = LocalDate.now();
-        LocalDate twelveMonthsAgo = today.minusMonths(12);
+        LocalDate lookbackFloor = LocalDate.of(2025, 1, 1); // глобальный пол мониторинга: раньше 2025-01-01 не смотрим
         LocalDate monitoringStart = client.getMonitoringPeriodStart();
 
         int calendarsScanned = 0;
@@ -188,13 +195,16 @@ public class StatementGapInspectorService {
             if (monitoringStart != null && monitoringStart.isAfter(effectiveStart)) {
                 effectiveStart = monitoringStart;
             }
-            if (twelveMonthsAgo.isAfter(effectiveStart)) {
-                effectiveStart = twelveMonthsAgo;
+            if (lookbackFloor.isAfter(effectiveStart)) {
+                effectiveStart = lookbackFloor;
             }
 
             // Список existing Statement для (client, bank) — нужен для матчинга
             List<Statement> existingStatements = statementRepository
                     .findByClientIdAndBankIdOrderByPeriodStartAsc(client.getId(), bank.getId());
+
+            // Склеиваем смежные выписки в интервалы покрытия (хелпер buildCoverage, см. ниже).
+            java.util.List<LocalDate[]> coverage = buildCoverage(existingStatements);
 
             // Генерируем expected periods
             LocalDate periodStart = normalizeToStart(effectiveStart, cal.getFrequency());
@@ -206,13 +216,19 @@ public class StatementGapInspectorService {
                     break;
                 }
 
+                // Кламп: период, начинающийся раньше нижней границы мониторинга, не флагуем
+                if (periodStart.isBefore(effectiveStart)) {
+                    periodStart = advancePeriod(periodStart, cal.getFrequency());
+                    continue;
+                }
+
                 expectedPeriodsFound++;
 
-                // Проверяем: покрыт ли этот expected period каким-то существующим Statement?
+                // Покрыт ли expected period склеенными интервалами выписок?
                 LocalDate ps = periodStart;
                 LocalDate pe = periodEnd;
-                boolean covered = existingStatements.stream().anyMatch(s ->
-                    !s.getPeriodStart().isAfter(ps) && !s.getPeriodEnd().isBefore(pe)
+                boolean covered = coverage.stream().anyMatch(iv ->
+                    !iv[0].isAfter(ps) && !iv[1].isBefore(pe)
                 );
 
                 if (!covered) {
@@ -230,6 +246,7 @@ public class StatementGapInspectorService {
     /** Нормализация даты к началу периода (для MONTHLY — 1-е число месяца). */
     private LocalDate normalizeToStart(LocalDate d, StatementFrequency f) {
         return switch (f) {
+            case WEEKLY -> d.with(DayOfWeek.MONDAY);
             case MONTHLY -> d.withDayOfMonth(1);
             case QUARTERLY -> {
                 int qStartMonth = ((d.getMonthValue() - 1) / 3) * 3 + 1;
@@ -242,6 +259,7 @@ public class StatementGapInspectorService {
     /** Конец периода: для MONTHLY — последнее число того же месяца. */
     private LocalDate computePeriodEnd(LocalDate start, StatementFrequency f) {
         return switch (f) {
+            case WEEKLY -> start.plusDays(6);
             case MONTHLY -> start.withDayOfMonth(start.lengthOfMonth());
             case QUARTERLY -> start.plusMonths(3).minusDays(1);
             case ANNUAL -> start.plusYears(1).minusDays(1);
@@ -251,6 +269,7 @@ public class StatementGapInspectorService {
     /** Следующий период: для MONTHLY — +1 месяц. */
     private LocalDate advancePeriod(LocalDate start, StatementFrequency f) {
         return switch (f) {
+            case WEEKLY -> start.plusWeeks(1);
             case MONTHLY -> start.plusMonths(1);
             case QUARTERLY -> start.plusMonths(3);
             case ANNUAL -> start.plusYears(1);
@@ -274,6 +293,8 @@ public class StatementGapInspectorService {
                     gap.setGapStart(gapStart);
                     gap.setGapEnd(gapEnd);
                     gap.setStatus(StatementGapStatus.DETECTED);
+                    gap.setTenantId(client.getTenantId());
+                    gap.setNextActionAt(java.time.Instant.now());
                     statementGapRepository.save(gap);
                     log.info("gap DETECTED client_inn={} bank={} period={}..{} ({} days)",
                             client.getInn(), bank.getName(), gapStart, gapEnd,
@@ -282,8 +303,52 @@ public class StatementGapInspectorService {
                 });
     }
 
-    public record ScanResult(int clientsScanned, int gapsFound, int gapsCreated, long durationMs) {}
-    public record ClientScanResult(UUID clientId, int banksScanned, int gapsFound, int gapsCreated) {}
+    /** Склейка выписок в непрерывные интервалы покрытия [start,end]; statements отсортированы по period_start. */
+    private java.util.List<LocalDate[]> buildCoverage(List<Statement> statements) {
+        java.util.List<LocalDate[]> coverage = new java.util.ArrayList<>();
+        for (Statement s : statements) {
+            LocalDate st = s.getPeriodStart();
+            LocalDate en = s.getPeriodEnd();
+            if (!coverage.isEmpty()
+                    && !st.isAfter(coverage.get(coverage.size() - 1)[1].plusDays(1))) {
+                LocalDate[] last = coverage.get(coverage.size() - 1);
+                if (en.isAfter(last[1])) last[1] = en;
+            } else {
+                coverage.add(new LocalDate[]{st, en});
+            }
+        }
+        return coverage;
+    }
+
+    /** Закрывает открытые дыры банка, полностью покрытые выписками. resolved_by = выписка, накрывшая gapEnd. */
+    private int closeCoveredGaps(Client client, Counterparty bank, List<Statement> bankStatements) {
+        if (bankStatements.isEmpty()) return 0;
+        List<Statement> sorted = bankStatements.stream()
+                .sorted(Comparator.comparing(Statement::getPeriodStart)).toList();
+        java.util.List<LocalDate[]> coverage = buildCoverage(sorted);
+        int closed = 0;
+        for (StatementGap gap : statementGapRepository.findByClientIdAndBankId(client.getId(), bank.getId())) {
+            if (gap.getStatus() == StatementGapStatus.CLOSED) continue;
+            LocalDate gs = gap.getGapStart();
+            LocalDate ge = gap.getGapEnd();
+            boolean fully = coverage.stream().anyMatch(iv -> !iv[0].isAfter(gs) && !iv[1].isBefore(ge));
+            if (!fully) continue;
+            UUID resolver = sorted.stream()
+                    .filter(s -> !s.getPeriodStart().isAfter(ge) && !s.getPeriodEnd().isBefore(ge))
+                    .map(Statement::getId).findFirst().orElse(null);
+            gap.setStatus(StatementGapStatus.CLOSED);
+            gap.setClosedAt(java.time.Instant.now());
+            gap.setResolvedByStatementId(resolver);
+            statementGapRepository.save(gap);
+            closed++;
+            log.info("gap CLOSED client_inn={} bank={} period={}..{} by_statement={}",
+                    client.getInn(), bank.getName(), gs, ge, resolver);
+        }
+        return closed;
+    }
+
+    public record ScanResult(int clientsScanned, int gapsFound, int gapsCreated, int gapsClosed, long durationMs) {}
+    public record ClientScanResult(UUID clientId, int banksScanned, int gapsFound, int gapsCreated, int gapsClosed) {}
 
     public static class ClientNotFoundException extends RuntimeException {
         public ClientNotFoundException(String message) { super(message); }

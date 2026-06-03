@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0019-1-add-client-tenant" author="claude+iakshin">
+        <comment>client.tenant_id. DEFAULT = seed-тенант: существующий код создания клиента не ломается.</comment>
+
+        <addColumn tableName="clients">
+            <column name="tenant_id" type="uuid" defaultValueComputed="'7c1a9d2e-1f3b-4c5d-8e6f-0a1b2c3d4e5f'"/>
+        </addColumn>
+
+        <update tableName="clients">
+            <column name="tenant_id" valueComputed="'7c1a9d2e-1f3b-4c5d-8e6f-0a1b2c3d4e5f'"/>
+            <where>tenant_id IS NULL</where>
+        </update>
+
+        <addNotNullConstraint tableName="clients" columnName="tenant_id" columnDataType="uuid"/>
+
+        <addForeignKeyConstraint
+            baseTableName="clients" baseColumnNames="tenant_id"
+            referencedTableName="tenants" referencedColumnNames="id"
+            constraintName="fk_clients_tenant"/>
+
+        <createIndex tableName="clients" indexName="idx_clients_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0019-2-add-client-tenant-aud" author="claude+iakshin">
+        <comment>Envers: зеркалим tenant_id в clients_aud (plain, nullable).</comment>
+        <addColumn tableName="clients_aud">
+            <column name="tenant_id" type="uuid"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0021-1-create-notifications" author="claude+iakshin">
+        <comment>Outbox-леджер отправок: идемпотентность (uk idempotency_key) + аудит + crash-safety.</comment>
+
+        <createTable tableName="notifications">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_notifications_tenant" references="tenants(id)"/>
+            </column>
+            <column name="gap_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_notifications_gap" references="statement_gaps(id)"/>
+            </column>
+            <column name="reminder_no" type="integer">
+                <constraints nullable="false"/>
+            </column>
+            <column name="channel" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="recipient" type="jsonb"/>
+            <column name="payload" type="jsonb"/>
+            <column name="idempotency_key" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="caller_response" type="jsonb"/>
+            <column name="attempts" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp with time zone" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sent_at" type="timestamp with time zone"/>
+        </createTable>
+
+        <addUniqueConstraint tableName="notifications"
+            columnNames="idempotency_key" constraintName="uk_notifications_idempotency"/>
+
+        <createIndex tableName="notifications" indexName="idx_notifications_status">
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="notifications" indexName="idx_notifications_gap">
+            <column name="gap_id"/>
+        </createIndex>
+
+        <sql>
+            ALTER TABLE notifications ADD CONSTRAINT ck_notifications_status
+            CHECK (status IN ('PENDING','SENT','FAILED'));
+        </sql>
+
+        <rollback>
+            <dropTable tableName="notifications"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

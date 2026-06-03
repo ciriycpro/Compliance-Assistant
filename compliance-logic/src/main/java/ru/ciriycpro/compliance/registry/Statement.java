@@ -76,6 +76,9 @@ public class Statement {
     @Column(name = "currency", length = 3)
     private String currency;
 
+    @Column(name = "account_number", length = 20)
+    private String accountNumber;
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -130,6 +133,9 @@ public class Statement {
 
     public String getCurrency() { return currency; }
     public void setCurrency(String currency) { this.currency = currency; }
+
+    public String getAccountNumber() { return accountNumber; }
+    public void setAccountNumber(String accountNumber) { this.accountNumber = accountNumber; }
 
     public StatementStatus getStatus() { return status; }
     public void setStatus(StatementStatus status) { this.status = status; }

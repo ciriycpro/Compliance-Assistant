@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0020-1-extend-statement-gaps" author="claude+iakshin">
+        <comment>Поля петли алертов: tenant_id, reminder_no, next_action_at (ключ claim), escalated_at, last_channel, resolved_by_statement_id.</comment>
+
+        <addColumn tableName="statement_gaps">
+            <column name="tenant_id" type="uuid" defaultValueComputed="'7c1a9d2e-1f3b-4c5d-8e6f-0a1b2c3d4e5f'"/>
+            <column name="reminder_no" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="next_action_at" type="timestamp with time zone"/>
+            <column name="escalated_at" type="timestamp with time zone"/>
+            <column name="last_channel" type="varchar(20)"/>
+            <column name="resolved_by_statement_id" type="uuid"/>
+        </addColumn>
+
+        <!-- tenant_id из клиента (existing строки), затем not null + FK -->
+        <sql>
+            UPDATE statement_gaps g SET tenant_id = c.tenant_id
+            FROM clients c WHERE c.id = g.client_id AND g.tenant_id IS NULL;
+        </sql>
+        <addNotNullConstraint tableName="statement_gaps" columnName="tenant_id" columnDataType="uuid"/>
+        <addForeignKeyConstraint
+            baseTableName="statement_gaps" baseColumnNames="tenant_id"
+            referencedTableName="tenants" referencedColumnNames="id"
+            constraintName="fk_statement_gaps_tenant"/>
+
+        <!-- resolved_by_statement_id FK -->
+        <addForeignKeyConstraint
+            baseTableName="statement_gaps" baseColumnNames="resolved_by_statement_id"
+            referencedTableName="statements" referencedColumnNames="id"
+            constraintName="fk_statement_gaps_resolved_by"/>
+
+        <!-- existing DETECTED дыры: due немедленно для step-2 claim -->
+        <sql>
+            UPDATE statement_gaps SET next_action_at = detected_at WHERE next_action_at IS NULL;
+        </sql>
+
+        <!-- статусы: добавлен ESCALATED к существующим -->
+        <sql>
+            ALTER TABLE statement_gaps ADD CONSTRAINT ck_statement_gaps_status
+            CHECK (status IN ('DETECTED','REQUEST_SENT','RECEIVED','CLOSED','ESCALATED'));
+        </sql>
+
+        <!-- индекс под claim оркестратором -->
+        <createIndex tableName="statement_gaps" indexName="idx_statement_gaps_claim">
+            <column name="tenant_id"/>
+            <column name="status"/>
+            <column name="next_action_at"/>
+        </createIndex>
+
+        <rollback>
+            <sql>ALTER TABLE statement_gaps DROP CONSTRAINT IF EXISTS ck_statement_gaps_status;</sql>
+            <dropIndex tableName="statement_gaps" indexName="idx_statement_gaps_claim"/>
+            <dropForeignKeyConstraint baseTableName="statement_gaps" constraintName="fk_statement_gaps_resolved_by"/>
+            <dropForeignKeyConstraint baseTableName="statement_gaps" constraintName="fk_statement_gaps_tenant"/>
+            <dropColumn tableName="statement_gaps" columnName="resolved_by_statement_id"/>
+            <dropColumn tableName="statement_gaps" columnName="last_channel"/>
+            <dropColumn tableName="statement_gaps" columnName="escalated_at"/>
+            <dropColumn tableName="statement_gaps" columnName="next_action_at"/>
+            <dropColumn tableName="statement_gaps" columnName="reminder_no"/>
+            <dropColumn tableName="statement_gaps" columnName="tenant_id"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0020-2-extend-statement-gaps-aud" author="claude+iakshin">
+        <comment>Envers: зеркалим новые поля в statement_gaps_aud (plain, nullable).</comment>
+        <addColumn tableName="statement_gaps_aud">
+            <column name="tenant_id" type="uuid"/>
+            <column name="reminder_no" type="integer"/>
+            <column name="next_action_at" type="timestamp with time zone"/>
+            <column name="escalated_at" type="timestamp with time zone"/>
+            <column name="last_channel" type="varchar(20)"/>
+            <column name="resolved_by_statement_id" type="uuid"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

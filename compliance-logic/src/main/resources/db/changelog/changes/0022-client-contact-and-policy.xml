@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0022-1-add-client-contact" author="claude+iakshin">
+        <comment>Куда писать клиенту (per-client). v1: оба ИП → контакт Таирова (одно физлицо).</comment>
+        <addColumn tableName="clients">
+            <column name="contact" type="jsonb"/>
+        </addColumn>
+        <sql>
+            UPDATE clients
+            SET contact = '{"tg_chat_id": 1257818936, "wa": "79266143959", "email": "tgk-777@mail.ru"}'::jsonb
+            WHERE contact IS NULL;
+        </sql>
+    </changeSet>
+
+    <changeSet id="0022-2-add-client-contact-aud" author="claude+iakshin">
+        <comment>Envers: зеркалим contact в clients_aud (plain, nullable).</comment>
+        <addColumn tableName="clients_aud">
+            <column name="contact" type="jsonb"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0022-3-tenant-policy-extend" author="claude+iakshin">
+        <comment>policy += sending_enabled(false=канарейка), submission_email(куда слать выписки), format.</comment>
+        <sql>
+            UPDATE tenants
+            SET policy = policy || '{"sending_enabled": false, "submission_email": "5458508@mail.ru", "format": "xlsx или pdf"}'::jsonb
+            WHERE id = '7c1a9d2e-1f3b-4c5d-8e6f-0a1b2c3d4e5f';
+        </sql>
+        <rollback>
+            UPDATE tenants
+            SET policy = policy - 'sending_enabled' - 'submission_email' - 'format'
+            WHERE id = '7c1a9d2e-1f3b-4c5d-8e6f-0a1b2c3d4e5f';
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

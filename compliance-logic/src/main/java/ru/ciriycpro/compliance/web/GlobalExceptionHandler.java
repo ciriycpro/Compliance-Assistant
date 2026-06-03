@@ -10,6 +10,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import ru.ciriycpro.compliance.service.BackfillService;
 import ru.ciriycpro.compliance.service.ClientService;
 import ru.ciriycpro.compliance.service.ComplianceEventService;
+import ru.ciriycpro.compliance.service.ActService;
+import ru.ciriycpro.compliance.service.ReconcilerService;
+import ru.ciriycpro.compliance.service.ContractService;
 import ru.ciriycpro.compliance.service.CounterpartyService;
 import ru.ciriycpro.compliance.service.DocumentService;
 import ru.ciriycpro.compliance.service.MoneyOperationService;
@@ -56,7 +59,18 @@ public class GlobalExceptionHandler {
             StatementCalendarService.CalendarNotFoundException.class,
             BackfillService.BackfillJobNotFoundException.class,
             StatementGapInspectorService.ClientNotFoundException.class,
-            ComplianceEventService.EventNotFoundException.class
+            ComplianceEventService.EventNotFoundException.class,
+            ContractService.ContractNotFoundException.class,
+            ContractService.DocumentNotFoundException.class,
+            ContractService.ClientNotFoundException.class,
+            ContractService.CounterpartyNotFoundException.class,
+            ActService.ActNotFoundException.class,
+            ActService.DocumentNotFoundException.class,
+            ActService.ClientNotFoundException.class,
+            ActService.CounterpartyNotFoundException.class,
+            ActService.ContractNotFoundException.class,
+            ReconcilerService.ClientNotFoundException.class,
+            ReconcilerService.CounterpartyNotFoundException.class
     })
     public ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException e) {
         log.warn("404 NotFound: {}", e.getMessage());
@@ -69,7 +83,9 @@ public class GlobalExceptionHandler {
             DocumentService.DuplicateDocumentException.class,
             StatementService.DuplicateStatementException.class,
             BackfillService.IllegalBackfillStateException.class,
-            StatementCalendarService.DuplicateCalendarException.class
+            StatementCalendarService.DuplicateCalendarException.class,
+            ContractService.DuplicateContractException.class,
+            ActService.DuplicateActException.class
     })
     public ResponseEntity<Map<String, Object>> handleConflict(RuntimeException e) {
         log.warn("409 Conflict: {}", e.getMessage());
@@ -81,7 +97,10 @@ public class GlobalExceptionHandler {
             StatementService.InvalidPeriodException.class,
             MoneyOperationService.InvalidAmountException.class,
             MoneyOperationService.InvalidConfidenceException.class,
-            MoneyOperationService.OperationDateOutOfRangeException.class
+            MoneyOperationService.OperationDateOutOfRangeException.class,
+            ContractService.InvalidDocumentTypeException.class,
+            ContractService.InvalidPeriodException.class,
+            ActService.InvalidDocumentTypeException.class
     })
     public ResponseEntity<Map<String, Object>> handleUnprocessable(RuntimeException e) {
         log.warn("422 Unprocessable: {}", e.getMessage());

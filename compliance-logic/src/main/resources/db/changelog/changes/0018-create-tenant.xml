@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0018-1-create-tenants" author="claude+iakshin">
+        <comment>Tenant — комплаенс-фирма. Над client. Мульти-тенант заранее (DEC: арх-догма).</comment>
+
+        <createTable tableName="tenants">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(300)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="escalation_contact" type="jsonb"/>
+            <column name="policy" type="jsonb"/>
+            <column name="active" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp with time zone" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0018-2-seed-tenant-sirius" author="claude+iakshin">
+        <comment>Seed: единственный тенант на v1 — ООО «СИРИУС ПРО». Эскалация и policy по умолчанию.</comment>
+        <sql>
+            INSERT INTO tenants (id, name, escalation_contact, policy, active, created_at, updated_at)
+            VALUES (
+                '7c1a9d2e-1f3b-4c5d-8e6f-0a1b2c3d4e5f',
+                'ООО «СИРИУС ПРО»',
+                '{"tg_chat_id": 249979054, "email": "5458508@mail.ru"}'::jsonb,
+                '{"reminder_interval_hours": 72, "max_reminders": 3, "channel_order": ["tg","wa","email"], "locale": "ru"}'::jsonb,
+                true, now(), now()
+            );
+        </sql>
+        <rollback>
+            DELETE FROM tenants WHERE id = '7c1a9d2e-1f3b-4c5d-8e6f-0a1b2c3d4e5f';
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

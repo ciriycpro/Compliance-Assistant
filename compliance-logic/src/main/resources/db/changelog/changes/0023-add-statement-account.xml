@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0023-1-add-statement-account" author="claude+iakshin">
+        <comment>Номер счёта выписки (был потерян — loader сливал счета в одну выписку). Nullable, аддитивно: existing строки/FK/NOT-NULL не трогаем.</comment>
+        <addColumn tableName="statements">
+            <column name="account_number" type="varchar(20)"/>
+        </addColumn>
+        <rollback>
+            <dropColumn tableName="statements" columnName="account_number"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0023-2-add-statement-account-aud" author="claude+iakshin">
+        <comment>Envers: зеркалим account_number в statements_aud (plain, nullable).</comment>
+        <addColumn tableName="statements_aud">
+            <column name="account_number" type="varchar(20)"/>
+        </addColumn>
+        <rollback>
+            <dropColumn tableName="statements_aud" columnName="account_number"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

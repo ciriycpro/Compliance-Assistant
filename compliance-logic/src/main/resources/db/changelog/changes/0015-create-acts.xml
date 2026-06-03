@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0015-1-create-acts" author="claude+iakshin">
+        <comment>Act — специализация Document (type=ACT). Подтверждение исполнения по договору. DEC-023 Коммит 4.</comment>
+
+        <createTable tableName="acts">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="document_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_acts_document" references="documents(id)"/>
+            </column>
+            <column name="client_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_acts_client" references="clients(id)"/>
+            </column>
+            <column name="counterparty_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_acts_counterparty" references="counterparties(id)"/>
+            </column>
+            <column name="contract_id" type="uuid">
+                <constraints foreignKeyName="fk_acts_contract" references="contracts(id)"/>
+            </column>
+            <column name="act_number" type="varchar(100)"/>
+            <column name="act_date" type="date"/>
+            <column name="amount" type="decimal(18,2)"/>
+            <column name="subject" type="varchar(500)"/>
+            <column name="signing_status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_signed" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_signed_date" type="date"/>
+            <column name="counterparty_signed" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="counterparty_signed_date" type="date"/>
+            <column name="signature_confidence" type="decimal(3,2)"/>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="acts" columnNames="document_id" constraintName="uk_acts_document"/>
+
+        <createIndex tableName="acts" indexName="idx_acts_document">
+            <column name="document_id"/>
+        </createIndex>
+        <createIndex tableName="acts" indexName="idx_acts_client">
+            <column name="client_id"/>
+        </createIndex>
+        <createIndex tableName="acts" indexName="idx_acts_counterparty">
+            <column name="counterparty_id"/>
+        </createIndex>
+        <createIndex tableName="acts" indexName="idx_acts_contract">
+            <column name="contract_id"/>
+        </createIndex>
+        <createIndex tableName="acts" indexName="idx_acts_number">
+            <column name="act_number"/>
+        </createIndex>
+        <createIndex tableName="acts" indexName="idx_acts_signing_status">
+            <column name="signing_status"/>
+        </createIndex>
+
+        <sql>
+            ALTER TABLE acts ADD CONSTRAINT ck_acts_signing_status
+            CHECK (signing_status IN
+            ('DRAFT','SIGNED_ONE_SIDE','SIGNED_BOTH_SIDES','UNCLEAR','DISPUTED'));
+        </sql>
+    </changeSet>
+
+    <changeSet id="0015-2-create-acts-aud" author="claude+iakshin">
+        <comment>Envers audit table для acts</comment>
+        <createTable tableName="acts_aud">
+            <column name="rev" type="integer">
+                <constraints nullable="false" foreignKeyName="fk_acts_aud_rev" references="revinfo(rev)"/>
+            </column>
+            <column name="revtype" type="smallint"/>
+            <column name="id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="document_id" type="uuid"/>
+            <column name="client_id" type="uuid"/>
+            <column name="counterparty_id" type="uuid"/>
+            <column name="contract_id" type="uuid"/>
+            <column name="act_number" type="varchar(100)"/>
+            <column name="act_date" type="date"/>
+            <column name="amount" type="decimal(18,2)"/>
+            <column name="subject" type="varchar(500)"/>
+            <column name="signing_status" type="varchar(20)"/>
+            <column name="client_signed" type="boolean"/>
+            <column name="client_signed_date" type="date"/>
+            <column name="counterparty_signed" type="boolean"/>
+            <column name="counterparty_signed_date" type="date"/>
+            <column name="signature_confidence" type="decimal(3,2)"/>
+            <column name="created_at" type="timestamp with time zone"/>
+            <column name="updated_at" type="timestamp with time zone"/>
+        </createTable>
+        <addPrimaryKey tableName="acts_aud" columnNames="id, rev" constraintName="pk_acts_aud"/>
+    </changeSet>
+
+</databaseChangeLog>
