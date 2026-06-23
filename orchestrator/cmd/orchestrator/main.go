@@ -50,6 +50,17 @@ func main() {
 	stateAct := activities.NewStateActivity(cfg.StateServiceURL, cfg.StateServiceAPIKey, 10*time.Second)
 	notifyAct := activities.NewNotifyActivity(cfg.AgentCallerURL, 5*time.Second)
 
+	// Compliance-logic ingest activity (DEC-0027). Создаётся только если задан API_KEY.
+	var ingestAct *activities.IngestActivity
+	if cfg.ComplianceLogicAPIKey != "" {
+		a, e := activities.NewIngestActivity(cfg.ComplianceLogicURL, cfg.ComplianceLogicAPIKey, cfg.ComplianceLogicCACert, cfg.ServiceTimeout())
+		if e != nil {
+			logger.Error("startup.ingest_init_fail", slog.String("error", e.Error()))
+			os.Exit(1)
+		}
+		ingestAct = a
+	}
+
 	// Startup readiness check
 	logger.Info("startup.readiness_check")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -72,6 +83,11 @@ func main() {
 	if err := stateAct.HealthCheck(ctx); err != nil {
 		logger.Warn("startup.state_service_not_ready", slog.String("error", err.Error()))
 	}
+	if ingestAct != nil {
+		if err := ingestAct.HealthCheck(ctx); err != nil {
+			logger.Warn("startup.compliance_logic_not_ready", slog.String("error", err.Error()))
+		}
+	}
 
 	// Workflow
 	wf := &workflow.EmailDigestWorkflow{
@@ -88,6 +104,22 @@ func main() {
 		WhatsAppNumber:      cfg.WhatsAppNumber,
 		LockTTLSeconds:      cfg.WorkflowLockTTLSeconds,
 		FallbackPeriodHours: cfg.FallbackPeriodHours,
+	}
+
+	// Statement-vacuum workflow (DEC-0027). Создаётся только если ingestAct активен.
+	var vacuumWf *workflow.StatementVacuumWorkflow
+	if ingestAct != nil {
+		vacuumWf = &workflow.StatementVacuumWorkflow{
+			Mail:                mailAct,
+			Attachment:          attachmentAct,
+			Parser:              parserAct,
+			Ingest:              ingestAct,
+			WhatsApp:            waAct,
+			Logger:              logger,
+			MailboxLabel:        "compliance-5458508",
+			WhatsAppNumber:      cfg.WhatsAppNumber,
+			FallbackPeriodHours: cfg.FallbackPeriodHours,
+		}
 	}
 
 	// HTTP-server
@@ -116,6 +148,32 @@ func main() {
 	// /state/activate — для Agent Caller при установке кнопки новому пользователю
 	stateActivateLimiter := ratelimit.NewLimiter(60)
 	mux.Handle("/state/activate", authMW(stateActivateLimiter.Middleware(http.HandlerFunc(srv.HandleStateActivate))))
+
+	// Statement-vacuum manual trigger (DEC-0027). 503 если ingest disabled.
+	vacuumLimiter := ratelimit.NewLimiter(10)
+	mux.Handle("/statement-vacuum-now", authMW(vacuumLimiter.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if vacuumWf == nil {
+			http.Error(w, "statement-vacuum disabled (COMPLIANCE_LOGIC_API_KEY not set)", http.StatusServiceUnavailable)
+			return
+		}
+		traceID := logging.NewTraceID()
+		l := logging.WithTrace(logger, traceID)
+		l.Info("vacuum.webhook.trigger")
+		runCtx, runCancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer runCancel()
+		result, err := vacuumWf.Run(runCtx, workflow.VacuumParams{TraceID: traceID, Trigger: "webhook"})
+		if err != nil {
+			l.Error("vacuum.webhook.fail", slog.String("error", err.Error()))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		l.Info("vacuum.webhook.done",
+			slog.Int("ingested", result.StatementsIngested),
+			slog.Int("skipped", result.StatementsSkipped),
+			slog.Bool("wa_sent", result.WhatsAppSent))
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK\n"))
+	}))))
 
 	httpSrv := &http.Server{
 		Addr:         cfg.HTTPAddr(),
@@ -160,6 +218,36 @@ func main() {
 		logger.Info("cron.started", slog.String("schedule", cfg.Schedule))
 	} else {
 		logger.Info("cron.disabled")
+	}
+
+	// Statement-vacuum cron (DEC-0027). Отдельное расписание от digest, UTC.
+	var c2 *cron.Cron
+	if cfg.StatementVacuumSchedule != "" && vacuumWf != nil {
+		c2 = cron.New(cron.WithLogger(cronLogger{logger}))
+		_, err := c2.AddFunc(cfg.StatementVacuumSchedule, func() {
+			traceID := logging.NewTraceID()
+			l := logging.WithTrace(logger, traceID)
+			l.Info("vacuum.cron.trigger")
+			runCtx, runCancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			defer runCancel()
+			result, err := vacuumWf.Run(runCtx, workflow.VacuumParams{TraceID: traceID, Trigger: workflow.TriggerCron})
+			if err != nil {
+				l.Error("vacuum.cron.fail", slog.String("error", err.Error()))
+				return
+			}
+			l.Info("vacuum.cron.done",
+				slog.Int("ingested", result.StatementsIngested),
+				slog.Int("skipped", result.StatementsSkipped),
+				slog.Bool("wa_sent", result.WhatsAppSent))
+		})
+		if err != nil {
+			logger.Error("vacuum.cron.schedule.fail", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		c2.Start()
+		logger.Info("vacuum.cron.started", slog.String("schedule", cfg.StatementVacuumSchedule))
+	} else {
+		logger.Info("vacuum.cron.disabled")
 	}
 
 	// HTTP server in goroutine

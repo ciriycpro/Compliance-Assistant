@@ -223,7 +223,7 @@ def _fetch_from_mailbox(mb_config, dt, imap_date, mailbox_folder):
 
 
 @app.get("/mail/since/{since_date}")
-def get_mail_since(since_date: str, mailbox: str = DEFAULT_MAILBOX):
+def get_mail_since(since_date: str, mailbox: str = DEFAULT_MAILBOX, label: str = None, group: str = None):
     # Принимаем только YYYY-MM-DDTHH:MM (точность для оркестратора v1+).
     try:
         dt = datetime.strptime(since_date, '%Y-%m-%dT%H:%M')
@@ -237,10 +237,24 @@ def get_mail_since(since_date: str, mailbox: str = DEFAULT_MAILBOX):
     if not MAILBOXES:
         raise HTTPException(status_code=500, detail="No mailboxes configured")
 
-    log.info(f"Fetching mail since {imap_date} from {len(MAILBOXES)} mailbox(es)")
+    # Адресация тула (DEC-022): label=точный ящик, group=набор, иначе — только default-ящики
+    # (без default:false). Так дайджест (без фильтра) НЕ тянет compliance-ящик,
+    # а compliance зовёт ?label=... — каждый берёт своё, без замесов.
+    if label:
+        boxes = [mb for mb in MAILBOXES if mb.get("label") == label]
+    elif group:
+        boxes = [mb for mb in MAILBOXES if mb.get("group") == group]
+    else:
+        boxes = [mb for mb in MAILBOXES if mb.get("default", True)]
+
+    if not boxes:
+        log.info(f"No mailbox matched (label={label}, group={group}); configured={len(MAILBOXES)}")
+        return []
+
+    log.info(f"Fetching since {imap_date} from {len(boxes)}/{len(MAILBOXES)} mailbox(es) [label={label} group={group}]")
 
     all_messages = []
-    for mb in MAILBOXES:
+    for mb in boxes:
         messages = _fetch_from_mailbox(mb, dt, imap_date, mailbox)
         all_messages.extend(messages)
 

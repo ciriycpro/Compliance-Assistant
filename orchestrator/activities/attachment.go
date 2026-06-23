@@ -27,6 +27,7 @@ func NewAttachmentActivity(baseURL string, timeout time.Duration) *AttachmentAct
 type DownloadParams struct {
 	MessageID string
 	Filename  string
+	Label     string // опциональный mailbox label из MAILBOXES_JSON (пусто = default-ящик)
 }
 
 // DownloadResult — результат скачивания.
@@ -40,10 +41,14 @@ type DownloadResult struct {
 
 // Download — скачать вложение из IMAP и сохранить в FS attachment-service.
 func (a *AttachmentActivity) Download(ctx context.Context, params DownloadParams, opts CallOptions) (*DownloadResult, error) {
-	body, err := json.Marshal(map[string]string{
+	bodyMap := map[string]string{
 		"messageId": params.MessageID,
 		"filename":  params.Filename,
-	})
+	}
+	if params.Label != "" {
+		bodyMap["label"] = params.Label
+	}
+	body, err := json.Marshal(bodyMap)
 	if err != nil {
 		return nil, fmt.Errorf("marshal: %w", err)
 	}

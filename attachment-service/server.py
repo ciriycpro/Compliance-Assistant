@@ -63,6 +63,8 @@ log = logging.getLogger("attachment-service")
 class DownloadRequest(BaseModel):
     messageId: str
     filename: str
+    label: str | None = None   # DEC-022 parity
+    group: str | None = None
 
 
 class DownloadResponse(BaseModel):
@@ -177,7 +179,7 @@ def _build_mailbox_configs() -> list[dict]:
     }]
 
 
-def _imap_find_message(message_id: str):
+def _imap_find_message(message_id: str, label: str | None = None, group: str | None = None):
     """
     Перебирает MAILBOXES, ищет письмо по Message-ID.
     Возвращает (M, uid, label) при первом попадании или None.
@@ -187,7 +189,21 @@ def _imap_find_message(message_id: str):
     clean_id = message_id.strip('<> ')
     search_query = f'HEADER Message-ID "{clean_id}"'
 
-    for mb in _build_mailbox_configs():
+    # Filter MAILBOXES by label/group/default (mirror mail-service /mail/since)
+    if MAILBOXES:
+        if label:
+            boxes = [mb for mb in MAILBOXES if mb.get("label") == label]
+        elif group:
+            boxes = [mb for mb in MAILBOXES if mb.get("group") == group]
+        else:
+            boxes = [mb for mb in MAILBOXES if mb.get("default", True)]
+        if not boxes:
+            log.info(f"No mailbox matched (label={label}, group={group})")
+            return None
+    else:
+        boxes = _build_mailbox_configs()
+
+    for mb in boxes:
         label = mb.get('label', mb.get('user', '?'))
         M = None
         try:
@@ -213,12 +229,12 @@ def _imap_find_message(message_id: str):
     return None
 
 
-def find_attachment_bytes(message_id: str, target_filename: str) -> tuple[bytes, str]:
+def find_attachment_bytes(message_id: str, target_filename: str, label: str | None = None, group: str | None = None) -> tuple[bytes, str]:
     """
     Подключается к IMAP (multi-mailbox), находит письмо по messageId,
     выбирает вложение по filename.
     """
-    result = _imap_find_message(message_id)
+    result = _imap_find_message(message_id, label=label, group=group)
     if result is None:
         log.warning(f"Message not found in any mailbox: {message_id}")
         raise HTTPException(
@@ -358,7 +374,7 @@ def download(req: DownloadRequest):
     
     # IMAP-fetch
     log.info(f"Cache miss, fetching from IMAP: {req.messageId}/{req.filename}")
-    payload, real_filename = find_attachment_bytes(req.messageId, req.filename)
+    payload, real_filename = find_attachment_bytes(req.messageId, req.filename, label=req.label, group=req.group)
     
     # Сохраняем
     target_dir.mkdir(parents=True, exist_ok=True)

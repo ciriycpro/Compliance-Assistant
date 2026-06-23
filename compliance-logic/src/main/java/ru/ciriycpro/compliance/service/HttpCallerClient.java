@@ -54,7 +54,7 @@ public class HttpCallerClient implements CallerPort {
         try {
             String body = om.writeValueAsString(Map.of("number", number, "text", text));
             HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/send-wa"))
-                    .timeout(Duration.ofSeconds(120))   // Caller поднимает Chrome + ждёт ~60с
+                    .timeout(Duration.ofSeconds(300))   // Caller поднимает Chrome + ждёт ~60с
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();

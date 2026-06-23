@@ -26,6 +26,7 @@ func NewMailActivity(baseURL string, timeout time.Duration) *MailActivity {
 type GetMailSinceParams struct {
 	Since string // ISO-date "2026-05-13" или "2026-05-13T09:00"
 	Limit int    // 0 = без лимита
+	Label string // опциональный фильтр по mailbox label из MAILBOXES_JSON (пусто = все ящики)
 }
 
 // GetMailSince — получить письма с указанной даты.
@@ -34,11 +35,14 @@ func (m *MailActivity) GetMailSince(ctx context.Context, params GetMailSincePara
 	if err != nil {
 		return nil, fmt.Errorf("parse url: %w", err)
 	}
+	q := endpoint.Query()
 	if params.Limit > 0 {
-		q := endpoint.Query()
 		q.Set("limit", fmt.Sprintf("%d", params.Limit))
-		endpoint.RawQuery = q.Encode()
 	}
+	if params.Label != "" {
+		q.Set("label", params.Label)
+	}
+	endpoint.RawQuery = q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {

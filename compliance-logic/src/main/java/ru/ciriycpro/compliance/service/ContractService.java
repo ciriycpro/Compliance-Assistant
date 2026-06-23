@@ -41,15 +41,18 @@ public class ContractService {
     private final DocumentRepository documentRepository;
     private final ClientRepository clientRepository;
     private final CounterpartyRepository counterpartyRepository;
+    private final ReconcilerService reconcilerService;
 
     public ContractService(ContractRepository contractRepository,
                            DocumentRepository documentRepository,
                            ClientRepository clientRepository,
-                           CounterpartyRepository counterpartyRepository) {
+                           CounterpartyRepository counterpartyRepository,
+                           ReconcilerService reconcilerService) {
         this.contractRepository = contractRepository;
         this.documentRepository = documentRepository;
         this.clientRepository = clientRepository;
         this.counterpartyRepository = counterpartyRepository;
+        this.reconcilerService = reconcilerService;
     }
 
     @Transactional
@@ -97,6 +100,12 @@ public class ContractService {
         Contract saved = contractRepository.save(c);
         log.info("contract created id={} client={} counterparty={} number={} signing={}",
                 saved.getId(), clientId, counterpartyId, contractNumber, saved.getSigningStatus());
+
+        // Post-ingest hook: моментальная линковка operations к новому contract (DEC-0028 #5)
+        ReconcilerService.RescanResult rs = reconcilerService.rescanForContract(saved.getId());
+        log.info("contract post-ingest reconcile contract_id={} flags_closed={} ops_linked={}",
+                saved.getId(), rs.closed(), rs.opsLinked());
+
         return saved;
     }
 

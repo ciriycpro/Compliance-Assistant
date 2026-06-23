@@ -20,6 +20,8 @@ public interface MoneyOperationRepository extends JpaRepository<MoneyOperation, 
 
     Page<MoneyOperation> findByClientIdAndCounterpartyId(UUID clientId, UUID counterpartyId, Pageable pageable);
 
+    List<MoneyOperation> findByClientIdAndCounterpartyIdAndLinkedContractIdIsNull(UUID clientId, UUID counterpartyId);
+
     List<MoneyOperation> findByClientIdAndOperationDateBetween(UUID clientId, LocalDate from, LocalDate to);
 
     List<MoneyOperation> findByClientIdAndLinkedContractIdIsNull(UUID clientId);

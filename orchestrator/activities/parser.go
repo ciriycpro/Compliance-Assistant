@@ -95,3 +95,66 @@ func (p *ParserActivity) HealthCheck(ctx context.Context) error {
 	}
 	return nil
 }
+
+
+// ParseStatementParams — параметры детерминированного парса банковской выписки.
+type ParseStatementParams struct {
+	Path string
+}
+
+// ParsedStatement — один statement в распарсенной выписке.
+// В одном файле может быть несколько statements (несколько счетов в одном PDF).
+// Operations не разбираем — пробрасываем как []json.RawMessage в meta для compliance-logic.
+type ParsedStatement struct {
+	Account     string            `json:"account"`
+	PeriodStart string            `json:"period_start"`
+	PeriodEnd   string            `json:"period_end"`
+	OwnerName   string            `json:"owner_name,omitempty"`
+	Operations  []json.RawMessage `json:"operations"`
+}
+
+// ParseStatementResult — ответ /parse-statement.
+type ParseStatementResult struct {
+	Bank       string            `json:"bank"`
+	Statements []ParsedStatement `json:"statements"`
+}
+
+// ParseStatement — POST /parse-statement (детерминированный парс банковской выписки).
+// Сейчас поддерживается ВТБ (pdf+xlsx) и Альфа (pdf). На неизвестный банк/неподходящий
+// файл parser-service вернёт 422 — это нормальный путь для нестатементных вложений
+// (договоры, акты, скриншоты), workflow эту ошибку проглатывает и идёт дальше.
+func (p *ParserActivity) ParseStatement(ctx context.Context, params ParseStatementParams, opts CallOptions) (*ParseStatementResult, error) {
+	body, err := json.Marshal(map[string]string{"path": params.Path})
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		p.BaseURL+"/parse-statement", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if opts.TraceID != "" {
+		req.Header.Set("X-Trace-Id", opts.TraceID)
+	}
+
+	client := newHTTPClient(resolveTimeout(opts, p.Timeout))
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("parser-service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		errBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("parser-service /parse-statement returned %d: %s",
+			resp.StatusCode, string(errBody))
+	}
+
+	var result ParseStatementResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &result, nil
+}

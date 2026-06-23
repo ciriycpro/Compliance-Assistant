@@ -57,6 +57,14 @@ type Config struct {
 
 	// Период по умолчанию для /digest-now (часы назад от now)
 	DefaultPeriodHours int `env:"DEFAULT_PERIOD_HOURS" envDefault:"24"`
+
+	// === Compliance-logic (DEC-0027: statement-vacuum target) ===
+	ComplianceLogicURL    string `env:"COMPLIANCE_LOGIC_URL"     envDefault:"https://127.0.0.1:8771"`
+	ComplianceLogicAPIKey string `env:"COMPLIANCE_LOGIC_API_KEY" envDefault:""`
+	ComplianceLogicCACert string `env:"COMPLIANCE_LOGIC_CA_CERT" envDefault:"/etc/compliance-tls/ca/ca.crt"`
+
+	// Cron для statement-vacuum (UTC). Пустая = только webhook /statement-vacuum-now.
+	StatementVacuumSchedule string `env:"STATEMENT_VACUUM_SCHEDULE" envDefault:""`
 }
 
 // Load — парсит env-переменные в Config.

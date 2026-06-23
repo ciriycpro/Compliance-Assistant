@@ -670,3 +670,37 @@ def parse(req: ParseRequest):
             status_code=500,
             detail={"error": "parser_exception", "message": str(e), "type": type(e).__name__},
         )
+
+
+# ========================================================================
+# === Структурный разбор банковской выписки (вакуум 5458508 / DEC-008) ===
+# Детерминированно: PDF -> statement_parser (ВТБ/Альфа), XLSX -> statement_xlsx (ВТБ).
+# Отдаёт {bank, statements:[{account, period, operations[]}]}, не текст. Генерик /parse не трогает.
+# ========================================================================
+import statement_parser as _stmt_pdf
+import statement_xlsx as _stmt_xlsx
+
+
+class ParseStatementRequest(BaseModel):
+    path: str
+
+
+@app.post("/parse-statement")
+def parse_statement(req: ParseStatementRequest):
+    p = Path(req.path)
+    if not p.exists() or not p.is_file():
+        raise HTTPException(status_code=404, detail=f"File not found: {req.path}")
+    ext = p.suffix.lower()
+    try:
+        if ext == ".pdf":
+            return _stmt_pdf.parse(str(p))
+        if ext in (".xlsx", ".xls"):
+            return _stmt_xlsx.parse_xlsx(str(p))
+        raise HTTPException(status_code=415, detail={"error": "unsupported_statement_format", "ext": ext})
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail={"error": "not_a_statement_or_unknown_bank", "message": str(e)})
+    except Exception as e:
+        log.error(f"parse-statement failed for {p}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail={"error": "statement_parser_exception", "message": str(e), "type": type(e).__name__})

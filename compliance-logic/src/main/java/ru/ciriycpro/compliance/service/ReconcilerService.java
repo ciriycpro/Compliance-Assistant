@@ -147,11 +147,12 @@ public class ReconcilerService {
         Group(UUID cpId, String ref) { this.cpId = cpId; this.ref = ref; }
     }
 
-    /** Ежедневный re-scan: открытые флаги авто-закрываются при появлении договора. */
+    /** Ежедневный re-scan: открытые флаги авто-закрываются при появлении договора + bulk-линковка operations. */
     @Transactional
     public RescanResult rescanAll() {
         List<ReconciliationFlag> open = flagRepo.findByStatusNot(ReconciliationFlagStatus.RESOLVED);
         int closed = 0;
+        int opsLinked = 0;
         for (ReconciliationFlag f : open) {
             if (f.getFlagType() != ReconciliationFlagType.MISSING_CONTRACT) continue;
             List<Contract> contracts = contractRepo.findByClientIdAndCounterpartyId(
@@ -163,10 +164,103 @@ public class ReconcilerService {
                 f.setStatus(ReconciliationFlagStatus.RESOLVED);
                 f.setResolvedAt(Instant.now());
                 closed++;
+                opsLinked += linkOperationsForGroup(
+                        f.getClient().getId(), f.getCounterparty().getId(), f.getContractRef(), contracts);
             }
         }
-        log.info("reconciler rescan open={} closed={}", open.size(), closed);
-        return new RescanResult(open.size(), closed);
+        log.info("reconciler rescan open={} closed={} ops_linked={}", open.size(), closed, opsLinked);
+        return new RescanResult(open.size(), closed, opsLinked);
+    }
+
+    /** Узкий rescan для одного contract (вызывается post-ingest из ContractService.create). DEC-0028 #5. */
+    @Transactional
+    public RescanResult rescanForContract(UUID contractId) {
+        Contract contract = contractRepo.findById(contractId).orElse(null);
+        if (contract == null) {
+            log.warn("rescanForContract: contract not found id={}", contractId);
+            return new RescanResult(0, 0, 0);
+        }
+        UUID clientId = contract.getClient().getId();
+        UUID counterpartyId = contract.getCounterparty().getId();
+        List<Contract> contracts = contractRepo.findByClientIdAndCounterpartyId(clientId, counterpartyId);
+
+        List<ReconciliationFlag> open = flagRepo.findByClientIdAndStatusNot(clientId, ReconciliationFlagStatus.RESOLVED);
+        int closed = 0, opsLinked = 0;
+        for (ReconciliationFlag f : open) {
+            if (f.getFlagType() != ReconciliationFlagType.MISSING_CONTRACT) continue;
+            if (!f.getCounterparty().getId().equals(counterpartyId)) continue;
+            boolean resolved = f.getContractRef() != null
+                    ? contracts.stream().anyMatch(c -> numberMatches(f.getContractRef(), c.getContractNumber()))
+                    : !contracts.isEmpty();
+            if (resolved) {
+                f.setStatus(ReconciliationFlagStatus.RESOLVED);
+                f.setResolvedAt(Instant.now());
+                closed++;
+                opsLinked += linkOperationsForGroup(clientId, counterpartyId, f.getContractRef(), contracts);
+            }
+        }
+        // Edge case: contract создан раньше operations → флага нет, но линковать orphan'ов всё равно надо
+        if (closed == 0) {
+            opsLinked += linkOperationsForGroup(clientId, counterpartyId, null, contracts);
+        }
+        log.info("rescan_for_contract id={} flags_closed={} ops_linked={}", contractId, closed, opsLinked);
+        return new RescanResult(open.size(), closed, opsLinked);
+    }
+
+    /**
+     * Bulk-линковка orphan-operations (client+counterparty без linked_contract_id) к подходящему contract.
+     * Docker-friendly: saveAll → один tx-flush.
+     * Secure-by-design: cross-client + cross-counterparty defense in depth.
+     * MAX_LINK_BATCH=1000 — защита от взрывного roll-up (chunking в backlog).
+     */
+    private int linkOperationsForGroup(UUID clientId, UUID counterpartyId, String groupRef, List<Contract> contracts) {
+        if (contracts == null || contracts.isEmpty()) return 0;
+
+        final int MAX_LINK_BATCH = 1000;
+        List<MoneyOperation> orphans = moRepo.findByClientIdAndCounterpartyIdAndLinkedContractIdIsNull(clientId, counterpartyId);
+        if (orphans.size() > MAX_LINK_BATCH) {
+            log.warn("link_group: orphans={} truncated to MAX_LINK_BATCH={}", orphans.size(), MAX_LINK_BATCH);
+            orphans = orphans.subList(0, MAX_LINK_BATCH);
+        }
+
+        List<MoneyOperation> toSave = new ArrayList<>();
+        for (MoneyOperation op : orphans) {
+            // Defense in depth
+            if (!op.getClient().getId().equals(clientId)) {
+                log.warn("link_group: cross-client op={} client={} expected={}", op.getId(), op.getClient().getId(), clientId);
+                continue;
+            }
+            if (op.getCounterparty() == null || !op.getCounterparty().getId().equals(counterpartyId)) {
+                log.warn("link_group: counterparty mismatch op={}", op.getId());
+                continue;
+            }
+            Contract target = pickBestContract(op, groupRef, contracts);
+            if (target == null) continue;
+            op.setLinkedContractId(target.getId());
+            toSave.add(op);
+        }
+        if (toSave.isEmpty()) return 0;
+        moRepo.saveAll(toSave);
+        log.info("link_group client={} counterparty={} group_ref={} linked={}",
+                clientId, counterpartyId, groupRef == null ? "<any>" : groupRef, toSave.size());
+        return toSave.size();
+    }
+
+    /** Выбор подходящего contract для operation: точное совпадение ref → группа → первый. */
+    private Contract pickBestContract(MoneyOperation op, String groupRef, List<Contract> contracts) {
+        if (contracts.isEmpty()) return null;
+        String opRef = extractContractNumber(op.getPurpose());
+        if (opRef != null) {
+            return contracts.stream()
+                    .filter(c -> numberMatches(opRef, c.getContractNumber()))
+                    .findFirst().orElse(null);
+        }
+        if (groupRef != null) {
+            return contracts.stream()
+                    .filter(c -> numberMatches(groupRef, c.getContractNumber()))
+                    .findFirst().orElse(null);
+        }
+        return contracts.get(0);
     }
 
     public List<ReconciliationFlag> openFlags(UUID clientId) {
@@ -178,7 +272,7 @@ public class ReconcilerService {
     }
 
     public record ReconcileResult(int counterpartiesScanned, int flagsCreated, int flagsExisting) {}
-    public record RescanResult(int openScanned, int closed) {}
+    public record RescanResult(int openScanned, int closed, int opsLinked) {}
 
     public static class ClientNotFoundException extends RuntimeException {
         public ClientNotFoundException(String m) { super(m); }
