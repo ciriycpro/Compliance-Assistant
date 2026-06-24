@@ -1,0 +1,31 @@
+[Unit]
+Description=Summary-prep Service v1.0 (mail-stack, DEC-0030)
+After=network.target
+
+[Service]
+Type=simple
+User=iakshin77
+Group=iakshin77
+UMask=0022
+WorkingDirectory=/opt/mail-stack/summary-prep
+EnvironmentFile=/etc/mail-stack/summary-prep.env
+ExecStart=/opt/mail-stack/summary-prep/venv/bin/uvicorn server:app --host 127.0.0.1 --port 8772
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening (DEC-017)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+# Кэш — writable
+ReadWritePaths=/var/lib/summary-prep
+
+[Install]
+WantedBy=multi-user.target

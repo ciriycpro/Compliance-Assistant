@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: summary-prep
+  namespace: compliance-assistant
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: summary-prep
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Принимает запросы только от orchestrator
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: orchestrator
+    ports:
+    - protocol: TCP
+      port: 8772
+  egress:
+  # Может звонить в OpenRouter (HTTPS)
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+  # DNS
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53

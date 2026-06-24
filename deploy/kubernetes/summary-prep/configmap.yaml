@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: summary-prep-config
+  namespace: compliance-assistant
+data:
+  SUMMARY_PREP_HTTP_HOST: "0.0.0.0"
+  SUMMARY_PREP_HTTP_PORT: "8772"
+  SUMMARY_PREP_LOG_API_KEY_PREFIX: "false"
+
+  OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1"
+  OPENROUTER_TIMEOUT_SEC: "60"
+
+  DISTILL_MODE: "production"
+  DISTILL_MODEL: "anthropic/claude-haiku-4.5"
+  DISTILL_CHAR_THRESHOLD: "80000"
+  DISTILL_CHUNK_CHARS: "50000"
+  DISTILL_MAX_RETRIES: "2"
+  DISTILL_PARTIAL_REDUCE_THRESHOLD: "0.5"
+  DISTILL_PROMPT_VERSION: "v1"
+  DISTILL_CACHE_DIR: "/var/lib/summary-prep/cache"
+  DISTILL_CACHE_TTL_DAYS: "30"

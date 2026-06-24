@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: summary-prep
+  namespace: compliance-assistant
+  labels:
+    app.kubernetes.io/name: summary-prep
+    app.kubernetes.io/part-of: compliance-assistant
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: summary-prep
+  ports:
+  - name: http
+    port: 8772
+    targetPort: 8772
+    protocol: TCP

@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: summary-prep
+  namespace: compliance-assistant
+  labels:
+    app.kubernetes.io/name: summary-prep
+    app.kubernetes.io/component: distillation
+    app.kubernetes.io/part-of: compliance-assistant
+spec:
+  replicas: 1   # v1.0 MVP; масштабируется горизонтально (stateless кроме FS-кэша)
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: summary-prep
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: summary-prep
+        app.kubernetes.io/component: distillation
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: summary-prep
+        image: summary-prep:v1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8772
+          name: http
+        envFrom:
+        - configMapRef:
+            name: summary-prep-config
+        env:
+        - name: SUMMARY_PREP_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: summary-prep-secrets
+              key: SUMMARY_PREP_API_KEY
+        - name: OPENROUTER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: summary-prep-secrets
+              key: OPENROUTER_API_KEY
+        - name: DISTILL_CANARY_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: summary-prep-secrets
+              key: DISTILL_CANARY_TOKEN
+              optional: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8772
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: 8772
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: cache
+          mountPath: /var/lib/summary-prep/cache
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+      volumes:
+      - name: cache
+        persistentVolumeClaim:
+          claimName: summary-prep-cache
