@@ -251,6 +251,15 @@ async def distill(
         metrics.distill_calls_failed += 1
         log.warning("distill.forbidden trace=%s err=%s", trace_id, e)
         raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        # Hard contract violation (raw_text missing в deep+hard режиме)
+        if str(e).startswith("hard_contract_violation"):
+            metrics.distill_calls_failed += 1
+            log.warning("distill.hard_violation trace=%s err=%s", trace_id, e)
+            raise HTTPException(status_code=422, detail=str(e))
+        metrics.distill_calls_failed += 1
+        log.error("distill.value_error trace=%s err=%s", trace_id, e, exc_info=True)
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         metrics.distill_calls_failed += 1
         log.error("distill.error trace=%s err=%s", trace_id, e, exc_info=True)

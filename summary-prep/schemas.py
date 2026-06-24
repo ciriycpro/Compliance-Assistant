@@ -38,7 +38,7 @@ DocumentType = Literal[
 # === Вложенные структуры ===
 
 class Amount(BaseModel):
-    """Сумма с ролью и дословной цитатой источника."""
+    """Сумма с ролью и (опциональной) дословной цитатой источника."""
 
     value: Decimal = Field(..., description="Численное значение")
     currency: str = Field(default="RUB", description="Код валюты ISO-4217")
@@ -49,9 +49,12 @@ class Amount(BaseModel):
             "monthly | due | other"
         ),
     )
-    raw_text: str = Field(
-        ...,
-        description="Дословная цитата из источника, подтверждающая факт",
+    raw_text: str | None = Field(
+        default=None,
+        description=(
+            "Дословная цитата из источника. Optional в fast-mode (саммари); "
+            "обязательно проверяется на наличие при contract_strictness='hard'."
+        ),
     )
 
 
@@ -66,7 +69,13 @@ class DateEntry(BaseModel):
             "period_start | period_end | signature_date | other"
         ),
     )
-    raw_text: str = Field(..., description="Дословная цитата из источника")
+    raw_text: str | None = Field(
+        default=None,
+        description=(
+            "Дословная цитата из источника. Optional в fast-mode (саммари); "
+            "обязательно проверяется на наличие при contract_strictness='hard'."
+        ),
+    )
 
 
 class Party(BaseModel):
