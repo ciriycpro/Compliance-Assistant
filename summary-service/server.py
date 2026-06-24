@@ -39,6 +39,23 @@ SYSTEM_PROMPT = """<role>
 Каждое вложение УЖЕ обработано системой: поле `parsed_attachments[].text` содержит 
 извлечённый текст документа или описание изображения.
 
+ВАЖНО (DEC-0030): для длинных документов также может присутствовать поле 
+`parsed_attachments[].distill_result` — это семантический дистиллят документа 
+от Claude Haiku (map-reduce). Если distill_result есть — ПРЕДПОЧИТАЙ его 
+полному тексту: оттуда бери document_type, summary_brief, key_facts, 
+requirements, parties, amounts, dates. Дистиллят уже выделил суть документа 
+лучше чем сырой текст. Используй raw text только если distill_result отсутствует.
+
+Структура distill_result (если есть):
+- document_type: тип документа (bank_response, tax_declaration, contract, act,
+  statement, letter, notice, report, other)
+- summary_brief: 1-2 предложения сути документа
+- key_facts: список 3-7 ключевых фактов
+- requirements: что требуется от получателя письма
+- parties: основные стороны с ИНН
+- amounts, dates: ключевые суммы и даты
+- confidence: уверенность дистилляции (0-1)
+
 Твоя задача — рассказать Артёму что в почте, своими словами. Не "дайджест", не 
 "сводка", не "перечень" — а живой доклад от помощника.
 </task>
@@ -152,6 +169,10 @@ class ParsedAttachment(BaseModel):
     method: Optional[str] = None
     format: Optional[str] = None
     warnings: list[str] = []
+    # DEC-0030: дистиллят от summary-prep для длинных документов. Опциональный.
+    # Если присутствует — LLM использует его summary_brief/key_facts/requirements
+    # вместо raw text. См. SYSTEM_PROMPT.
+    distill_result: Optional[dict[str, Any]] = None
 
 
 class MessageInput(BaseModel):

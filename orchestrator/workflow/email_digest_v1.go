@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/ciriycpro/orchestrator/activities"
@@ -15,15 +16,16 @@ import (
 
 // EmailDigestWorkflow — основная цепочка для дайджеста.
 type EmailDigestWorkflow struct {
-	Mail       *activities.MailActivity
-	Attachment *activities.AttachmentActivity
-	Parser     *activities.ParserActivity
-	Summary    *activities.SummaryActivity
-	Telegram   *activities.TelegramActivity
-	WhatsApp   *activities.WhatsAppActivity
-	State      *activities.StateActivity
-	Notify     *activities.NotifyActivity // push к Agent Caller о завершении workflow (для отмены UX-таймеров)
-	Logger     *slog.Logger
+	Mail        *activities.MailActivity
+	Attachment  *activities.AttachmentActivity
+	Parser      *activities.ParserActivity
+	Summary     *activities.SummaryActivity
+	SummaryPrep *activities.SummaryPrepActivity // DEC-0030: дистилляция длинных документов
+	Telegram    *activities.TelegramActivity
+	WhatsApp    *activities.WhatsAppActivity
+	State       *activities.StateActivity
+	Notify      *activities.NotifyActivity // push к Agent Caller о завершении workflow (для отмены UX-таймеров)
+	Logger      *slog.Logger
 
 	// Конфиг доставки
 	TelegramChatID string // дефолтный chat для cron-trigger
@@ -34,6 +36,14 @@ type EmailDigestWorkflow struct {
 
 	// Fallback period когда last_at не записан (для первого запуска)
 	FallbackPeriodHours int
+
+	// DEC-0030: Summary-prep флаги
+	// EnableSummaryPrep — true = после parser длинные вложения дистиллируются через
+	// summary-prep, false = старый workflow (raw text напрямую в summary-service).
+	EnableSummaryPrep bool
+	// DistillThresholdChars — порог длины текста для запуска дистилляции.
+	// Если 0 — берём 80000 по умолчанию.
+	DistillThresholdChars int
 }
 
 // TriggerSource — источник запуска workflow (для product-grade логики).
@@ -265,6 +275,101 @@ func (w *EmailDigestWorkflow) Run(ctx context.Context, params RunParams) (*RunRe
 		}
 	}
 	logger.Info("step.attachments.done", slog.Int("count", result.AttachmentsCount))
+
+	// ============================================================
+	// 4.5. Distill attachments (DEC-0030)
+	// ============================================================
+	// Для каждого parsed_attachment с длинным текстом (> DistillThresholdChars)
+	// — параллельный вызов summary-prep:8772/distill.
+	// Результат записывается в ParsedAttachment.DistillResult.
+	// При ошибке — продолжаем с raw text (best-effort, не критический путь).
+	// Активируется только если w.EnableSummaryPrep=true и SummaryPrep клиент проставлен.
+	if w.EnableSummaryPrep && w.SummaryPrep != nil {
+		threshold := w.DistillThresholdChars
+		if threshold <= 0 {
+			threshold = 80000
+		}
+
+		// Собираем список (msg_idx, att_idx) для дистилляции
+		type distillTarget struct {
+			msgIdx int
+			attIdx int
+		}
+		var targets []distillTarget
+		for mi := range messages {
+			for ai := range messages[mi].ParsedAttachments {
+				if len(messages[mi].ParsedAttachments[ai].Text) > threshold {
+					targets = append(targets, distillTarget{msgIdx: mi, attIdx: ai})
+				}
+			}
+		}
+
+		if len(targets) > 0 {
+			logger.Info("step.distill.start",
+				slog.Int("count", len(targets)),
+				slog.Int("threshold_chars", threshold),
+			)
+
+			// Параллельный вызов
+			var wg sync.WaitGroup
+			var muErr sync.Mutex
+			distillErrors := []string{}
+
+			for _, t := range targets {
+				wg.Add(1)
+				go func(t distillTarget) {
+					defer wg.Done()
+					msg := &messages[t.msgIdx]
+					att := &msg.ParsedAttachments[t.attIdx]
+
+					distillResult, err := w.SummaryPrep.Distill(ctx, activities.DistillParams{
+						Text:               att.Text,
+						From:               msg.From,
+						Subject:            msg.Subject,
+						Date:               msg.Date,
+						Filename:           att.Filename,
+						QualityMode:        "fast",
+						ContractStrictness: "soft",
+					}, activities.CallOptions{TraceID: params.TraceID})
+					if err != nil {
+						logger.Warn("step.distill.attachment.fail",
+							slog.String("filename", att.Filename),
+							slog.Int("text_len", len(att.Text)),
+							slog.String("error", err.Error()),
+						)
+						muErr.Lock()
+						distillErrors = append(distillErrors, fmt.Sprintf("distill %s: %v", att.Filename, err))
+						muErr.Unlock()
+						return
+					}
+
+					att.DistillResult = distillResult
+				}(t)
+			}
+			wg.Wait()
+
+			distilledCount := 0
+			for _, t := range targets {
+				if messages[t.msgIdx].ParsedAttachments[t.attIdx].DistillResult != nil {
+					distilledCount++
+				}
+			}
+
+			result.Errors = append(result.Errors, distillErrors...)
+			logger.Info("step.distill.done",
+				slog.Int("attempted", len(targets)),
+				slog.Int("succeeded", distilledCount),
+				slog.Int("failed", len(distillErrors)),
+			)
+		} else {
+			logger.Info("step.distill.skip", slog.String("reason", "no long attachments"))
+		}
+	} else {
+		logger.Debug("step.distill.disabled",
+			slog.Bool("enable_summary_prep", w.EnableSummaryPrep),
+			slog.Bool("client_set", w.SummaryPrep != nil),
+		)
+	}
 
 	// ============================================================
 	// 5. Summary

@@ -45,6 +45,7 @@ func main() {
 	attachmentAct := activities.NewAttachmentActivity(cfg.AttachmentServiceURL, cfg.ServiceTimeout())
 	parserAct := activities.NewParserActivity(cfg.ParserServiceURL, cfg.ServiceTimeout())
 	summaryAct := activities.NewSummaryActivity(cfg.SummaryServiceURL, cfg.ServiceTimeout())
+	summaryPrepAct := activities.NewSummaryPrepActivity(cfg.SummaryPrepURL, cfg.SummaryPrepAPIKey, cfg.DistillTimeout())
 	telegramAct := activities.NewTelegramActivity(cfg.AgentCallerURL, 10*time.Second)
 	waAct := activities.NewWhatsAppActivity(cfg.AgentCallerURL, 150*time.Second)
 	stateAct := activities.NewStateActivity(cfg.StateServiceURL, cfg.StateServiceAPIKey, 10*time.Second)
@@ -91,19 +92,22 @@ func main() {
 
 	// Workflow
 	wf := &workflow.EmailDigestWorkflow{
-		Mail:                mailAct,
-		Attachment:          attachmentAct,
-		Parser:              parserAct,
-		Summary:             summaryAct,
-		Telegram:            telegramAct,
-		WhatsApp:            waAct,
-		State:               stateAct,
-		Notify:              notifyAct,
-		Logger:              logger,
-		TelegramChatID:      cfg.TelegramChatID,
-		WhatsAppNumber:      cfg.WhatsAppNumber,
-		LockTTLSeconds:      cfg.WorkflowLockTTLSeconds,
-		FallbackPeriodHours: cfg.FallbackPeriodHours,
+		Mail:                  mailAct,
+		Attachment:            attachmentAct,
+		Parser:                parserAct,
+		Summary:               summaryAct,
+		SummaryPrep:           summaryPrepAct,
+		Telegram:              telegramAct,
+		WhatsApp:              waAct,
+		State:                 stateAct,
+		Notify:                notifyAct,
+		Logger:                logger,
+		TelegramChatID:        cfg.TelegramChatID,
+		WhatsAppNumber:        cfg.WhatsAppNumber,
+		LockTTLSeconds:        cfg.WorkflowLockTTLSeconds,
+		FallbackPeriodHours:   cfg.FallbackPeriodHours,
+		EnableSummaryPrep:     cfg.EnableSummaryPrep,
+		DistillThresholdChars: cfg.DistillThresholdChars,
 	}
 
 	// Statement-vacuum workflow (DEC-0027). Создаётся только если ingestAct активен.

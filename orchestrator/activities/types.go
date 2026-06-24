@@ -14,14 +14,14 @@ import (
 // Message — представление письма от mail-service.
 // Структура минимальна — orchestrator не лезет внутрь, только передаёт дальше.
 type Message struct {
-	MessageID        string         `json:"messageId"`
-	From             string         `json:"from"`
-	Email            string         `json:"email,omitempty"`
-	FIO              string         `json:"fio,omitempty"`
-	Subject          string         `json:"subject"`
-	Date             string         `json:"date"`
-	BodyText         string         `json:"body_text,omitempty"`
-	AttachmentNames  []string       `json:"attachment_names,omitempty"`
+	MessageID         string             `json:"messageId"`
+	From              string             `json:"from"`
+	Email             string             `json:"email,omitempty"`
+	FIO               string             `json:"fio,omitempty"`
+	Subject           string             `json:"subject"`
+	Date              string             `json:"date"`
+	BodyText          string             `json:"body_text,omitempty"`
+	AttachmentNames   []string           `json:"attachment_names,omitempty"`
 	ParsedAttachments []ParsedAttachment `json:"parsed_attachments,omitempty"`
 }
 
@@ -32,6 +32,14 @@ type ParsedAttachment struct {
 	Method   string   `json:"method,omitempty"`
 	Format   string   `json:"format,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
+
+	// DistillResult — опциональный дистиллят от summary-prep сервиса (DEC-0030).
+	// Заполняется ТОЛЬКО для длинных документов (len(Text) > DistillThreshold).
+	// Передаётся в summary-service вместе с Text. Summary-service умеет использовать
+	// distill_result в промпте если есть, иначе работает по старому пути через Text.
+	// Тип: map[string]any (а не строгая структура) — чтобы не дублировать схему
+	// summary-prep здесь, summary-service сам читает поля из JSON.
+	DistillResult map[string]any `json:"distill_result,omitempty"`
 }
 
 // DigestResult — итоговый дайджест от summary-service.

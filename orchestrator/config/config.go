@@ -65,6 +65,22 @@ type Config struct {
 
 	// Cron для statement-vacuum (UTC). Пустая = только webhook /statement-vacuum-now.
 	StatementVacuumSchedule string `env:"STATEMENT_VACUUM_SCHEDULE" envDefault:""`
+
+	// === Summary-prep (DEC-0030: дистилляция длинных документов в email_digest_v1) ===
+	SummaryPrepURL    string `env:"SUMMARY_PREP_URL"     envDefault:"http://127.0.0.1:8772"`
+	SummaryPrepAPIKey string `env:"SUMMARY_PREP_API_KEY" envDefault:""`
+
+	// Включает шаг distill_attachments в email_digest_v1.
+	// false (default) = старый workflow без summary-prep, дайджест уйдёт raw text.
+	// true = новый workflow, длинные вложения дистиллируются.
+	EnableSummaryPrep bool `env:"ENABLE_SUMMARY_PREP" envDefault:"false"`
+
+	// Порог длины текста (chars) при превышении которого вложение дистиллируется.
+	// Должен совпадать с DISTILL_CHAR_THRESHOLD в summary-prep сервисе (по умолчанию 80000).
+	DistillThresholdChars int `env:"DISTILL_THRESHOLD_CHARS" envDefault:"80000"`
+
+	// Таймаут на один distill-вызов (секунды). На КЕБ-PDF (~25 сек) с запасом.
+	DistillTimeoutSec int `env:"DISTILL_TIMEOUT_SEC" envDefault:"180"`
 }
 
 // Load — парсит env-переменные в Config.
@@ -84,4 +100,9 @@ func (c *Config) HTTPAddr() string {
 // ServiceTimeout — timeout для HTTP-вызовов микросервисов.
 func (c *Config) ServiceTimeout() time.Duration {
 	return time.Duration(c.ServiceTimeoutSec) * time.Second
+}
+
+// DistillTimeout — timeout для одного вызова /distill в summary-prep.
+func (c *Config) DistillTimeout() time.Duration {
+	return time.Duration(c.DistillTimeoutSec) * time.Second
 }
