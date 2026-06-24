@@ -344,6 +344,12 @@ func (w *EmailDigestWorkflow) Run(ctx context.Context, params RunParams) (*RunRe
 					}
 
 					att.DistillResult = distillResult
+					// DEC-0030 Notes: после успешной дистилляции обнуляем att.Text,
+					// чтобы summary-service не получил И сырой текст И дистиллят
+					// (это удваивало бы input tokens и могло вернуть context overflow
+					// — корневая проблема [A] из DEC-0030 Implementation Notes 24.06).
+					// summary-service использует distill_result (по SYSTEM_PROMPT).
+					att.Text = ""
 				}(t)
 			}
 			wg.Wait()

@@ -254,10 +254,33 @@ def call_openrouter(model: str, messages_payload: list, temperature: float = SUM
 
 
 def format_user_message(period: str, messages: list[dict]) -> str:
-    """Готовит user message для LLM из массива писем."""
+    """Готовит user message для LLM из массива писем.
+
+    DEC-0030 failsafe: если у вложения есть distill_result — не отправляем
+    полный raw text в LLM (это удваивало бы input tokens и могло вернуть
+    context overflow). Оставляем первые 1500 chars как backup-контекст.
+    Orchestrator уже обнуляет att.Text после дистилляции, но этот код —
+    второй уровень защиты от context overflow.
+    """
+    TEXT_KEEP_AFTER_DISTILL = 1500
+    compacted_messages = []
+    for msg in messages:
+        msg_copy = dict(msg)
+        atts = msg_copy.get("parsed_attachments") or []
+        new_atts = []
+        for att in atts:
+            att_copy = dict(att)
+            if att_copy.get("distill_result"):
+                text = att_copy.get("text") or ""
+                if len(text) > TEXT_KEEP_AFTER_DISTILL:
+                    att_copy["text"] = text[:TEXT_KEEP_AFTER_DISTILL] + "...[full text replaced by distill_result]"
+            new_atts.append(att_copy)
+        msg_copy["parsed_attachments"] = new_atts
+        compacted_messages.append(msg_copy)
+
     return json.dumps({
         "period": period,
-        "messages": messages,
+        "messages": compacted_messages,
     }, ensure_ascii=False, indent=2)
 
 
